@@ -1805,8 +1805,15 @@ bool ErectusMemory::ChargenEditing()
 	if (!Settings::characterEditor.enabled)
 		return false;
 
+	// New pointer chain: [[Fallout76.exe+OFFSET_CHARGEN] + 0x68] + offset
+	std::uintptr_t basePtr;
+	if (!ErectusProcess::Rpm(ErectusProcess::exe + OFFSET_CHARGEN, &basePtr, sizeof basePtr))
+		return false;
+	if (!Utils::Valid(basePtr))
+		return false;
+
 	std::uintptr_t chargenPtr;
-	if (!ErectusProcess::Rpm(ErectusProcess::exe + OFFSET_CHARGEN, &chargenPtr, sizeof chargenPtr))
+	if (!ErectusProcess::Rpm(basePtr + 0x68, &chargenPtr, sizeof chargenPtr))
 		return false;
 	if (!Utils::Valid(chargenPtr))
 		return false;
@@ -1866,4 +1873,5 @@ bool ErectusMemory::PatchDetectFlag()
 {
 	BYTE patch[] = { 0x31, 0xC0, 0x90};
 	return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_FLAGDETECTED, &patch, sizeof patch);
+
 }
