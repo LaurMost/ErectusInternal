@@ -22,13 +22,13 @@ public:
 	char padding0008[0x78];
 	std::uintptr_t clientAccountManagerPtr;//0x80
 };
-
+// Updated offsets for version 1.7.23.11 0x4B0 to 0x4C0
 class BhkCharProxyController
 {
 public:
 	std::uintptr_t vtable;//0x0
-	BYTE padding0008[0x4A8];
-	std::uintptr_t hknpBsCharacterProxyPtr;//0x4B0
+	BYTE padding0008[0x4B8];
+	std::uintptr_t hknpBsCharacterProxyPtr;//0x4C0
 };
 
 class HknpBsCharacterProxy
@@ -497,3 +497,4 @@ private:
 
 	virtual void Dummy() = 0;
 };
+
