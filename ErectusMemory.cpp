@@ -1008,12 +1008,13 @@ bool ErectusMemory::MovePlayer()
 
 void ErectusMemory::Noclip(const bool enabled)
 {
-    if (!Utils::Valid(localPlayerPtr))
+    const auto player = Game::GetLocalPlayer();
+    if (!player.IsIngame())
         return;
 
     // Read pointer at Entity + 0xB0
     std::uintptr_t collisionPtr = 0;
-    if (!ErectusProcess::Rpm(localPlayerPtr + 0xB0, &collisionPtr, sizeof collisionPtr))
+    if (!ErectusProcess::Rpm(player.ptr + 0xB0, &collisionPtr, sizeof collisionPtr))
         return;
 
     if (!Utils::Valid(collisionPtr))
@@ -1868,5 +1869,6 @@ bool ErectusMemory::PatchDetectFlag()
 	return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_FLAGDETECTED, &patch, sizeof patch);
 
 }
+
 
 
