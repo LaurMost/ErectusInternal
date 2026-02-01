@@ -4,62 +4,67 @@
 
 #include <Windows.h>
 
-//FileVersion = 1.5.1.26
+
+//FileVersion = 1.7.23.11
 //just rpm
-constexpr auto OFFSET_LOCAL_PLAYER = 0x05489f78UL;//
-constexpr auto OFFSET_ENTITY_LIST = 0x0525ED98UL;//
-constexpr auto OFFSET_MAIN = 0x054EC050UL;//
-constexpr auto OFFSET_CAMERA = 0x0647AED0UL;//
-constexpr auto OFFSET_GET_PTR_A1 = 0x05265E78UL;//
-constexpr auto OFFSET_GET_PTR_A2 = 0x3DB6C20UL;//  
-constexpr auto OFFSET_NUKE_CODE = 0x0539F368UL;// 
-constexpr auto OFFSET_MAIN_WORLDSPACE = 0x539DE60UL;//
-constexpr auto OFFSET_ENTITY_ID = 0x05255380UL;// 
+constexpr auto OFFSET_LOCAL_PLAYER = 0x060404F0UL;// Patch 1.7.23.11
+constexpr auto OFFSET_ENTITY_LIST = 0x05E09B28UL;// Patch 1.7.23.11
+constexpr auto OFFSET_MAIN = 0x0609C498UL;// Patch 1.7.23.11
+constexpr auto OFFSET_CAMERA = 0x0703AC78UL;// Patch 1.7.23.11
+constexpr auto OFFSET_GET_PTR_A1 = 0x05E1B258UL;// Patch 1.7.23.11
+constexpr auto OFFSET_GET_PTR_A2 = 0x046D0EA0UL;// Updated for version 1.7.23.11
+constexpr auto OFFSET_NUKE_CODE = 0x05F57108UL;// Patch 1.7.23.11
+constexpr auto OFFSET_ENTITY_ID = 0x05E09B20UL;// Patch 1.7.23.11
 
 //wpm
 
 //anticheat
-constexpr auto OFFSET_INTEGRITYCHECK = 0x664C7A0UL;
-constexpr auto OFFSET_FLAGDETECTED = 0x5A50E6UL;
+
+constexpr auto OFFSET_INTEGRITYCHECK = 0x02142280UL;  // Updated 1.7.23.11
+constexpr auto SIZE_INTEGRITYCHECK = 0x00000013UL;  // Updated 1.7.23.11
+constexpr auto OFFSET_FLAGDETECTED = 0x406D76UL;  // Updated 1.7.23.11 Updated E8 ? ? ? ? 4D 85 F6 74 ? B9 Calls sub then add 0x6
 
 //chargen
-constexpr auto OFFSET_CHARGEN = 0x548C840UL + 0x100;//
+constexpr auto OFFSET_CHARGEN = 0x6042AB0UL + 0x100;  // Updated 1.7.23.11 48 8D 0D ? ? ? ? E8 ? ? ? ? 48 89 05 ? ? ? ? 48 8D 05 ? ? ? ? 48 89 05 ? ? ? ? E8 ? ? ? ? E8 points to offset
 
 //dmg redirection
-constexpr auto OFFSET_REDIRECTION = 0x194027BUL; //
-constexpr auto OFFSET_REDIRECTION_JMP = 0x194010BUL; //
+constexpr auto OFFSET_REDIRECTION = 0x1C35F3BUL;  // Updated 1.7.23.11 E8 ? ? ? ? 0F B6 E8 48 8B B7 Calls sub + 15B or 16B
+constexpr auto OFFSET_REDIRECTION_JMP = 0x1C369ABUL;  // Updated 1.7.23.11 
 
 //stats editor 
-constexpr auto OFFSET_ACTOR_VALUE = 0x017C8770UL;//
-constexpr auto OFFSET_AV_REGEN = 0x017C8B2FUL;//
-constexpr auto OFFSET_SERVER_POSITION = 0x015E0075UL;//
+constexpr auto OFFSET_ACTOR_VALUE = 0x01AA2A70UL;  // Updated 1.7.23.11 48 83 C1 ? E9 ? ? ? ? ? ? ? ? ? ? ? 48 89 5C 24 ? 48 89 6C 24 ? 56 48 83 EC ? 48 8D 69
+constexpr auto OFFSET_AV_REGEN = 0x01AA2E2FUL;  // Updated 1.7.23.11
+constexpr auto OFFSET_SERVER_POSITION = 0x0187D725UL;  // Updated 1.7.23.11
 
 //opk
-constexpr auto OFFSET_OPK = 0x2AB1EFDUL;//
+constexpr auto OFFSET_OPK = 0x31AE51DUL;  // Updated 1.7.23.11
 
 //noclip
-constexpr auto OFFSET_CHAR_CONTROLLER = 0x56C84C0UL;//
-constexpr auto OFFSET_NOCLIP_A = 0x2AA46C8UL; // 
-constexpr auto OFFSET_NOCLIP_B = 0x2AA4680UL; // 
-constexpr auto OFFSET_NOCLIP_C = 0x17458F1UL; // 
-constexpr auto OFFSET_NOCLIP_D = 0x1745921UL; //
+constexpr auto OFFSET_CHAR_CONTROLLER = 0x6288AB0UL;// Patch 1.7.23.11
+constexpr auto OFFSET_NOCLIP_A = 0x319CD08UL; // Patch 1.7.23.11
+constexpr auto OFFSET_NOCLIP_B = 0x319CCC0UL; // Patch 1.7.23.11
+constexpr auto OFFSET_NOCLIP_C = 0x1A1C73CUL; // Patch 1.7.23.11
+constexpr auto OFFSET_NOCLIP_D = 0x1A1C76CUL; // Patch 1.7.23.11
 
 //weapon editor
-constexpr auto OFFSET_DATA_HANDLER = 0x525AF98UL; //
-constexpr auto OFFSET_INFINITE_AMMO = 0x00E1CAD0UL; //48 83 EC 38 48 8D 44 24 50 C7 44 24 50 00 00 00 00
+constexpr auto OFFSET_DATA_HANDLER = 0x5E09B10UL; // Patch 1.7.23.11
+constexpr auto OFFSET_INFINITE_AMMO = 0x00F0C410UL; // Patch 1.7.23.11 48 83 EC 38 48 8D 44 24 50 C7 44 24 50 00 00 00 00
 
-//remote threads / message sending
-constexpr auto OFFSET_MELEE_ATTACK = 0x17D24E0UL;//
-constexpr auto OFFSET_MESSAGE_SENDER = 0x15F18C0UL;//
-constexpr auto OFFSET_FAKE_MESSAGE = 0x1579180UL;//
+//direct function calls / message sending
+constexpr auto OFFSET_MELEE_ATTACK = 0x1AADF50UL;// Patch 1.7.23.11
+constexpr auto OFFSET_MESSAGE_SENDER = 0x188ED90UL;// Patch 1.7.23.11 48 8B 01 B2 01 48 8B 40 48 48 FF 25 ? ? ? ? CC
+constexpr auto OFFSET_FAKE_MESSAGE_1 = 0x1579180UL; // 1.7.23.11
+constexpr auto OFFSET_FAKE_MESSAGE_2 = 0x1579180UL; // 1.7.23.11
+
 
 //vtables
-constexpr auto VTABLE_REQUESTACTIVATEREFMSG = 0x3C11E60UL;//
-constexpr auto VTABLE_REQUESTTRANSFERITEMMSG = 0x3C202D0UL;//
-constexpr auto VTABLE_REQUESTTELEPORTTOLOCATIONMSG = 0x3C15D10UL;//
-constexpr auto VTABLE_CLIENTSTATEMSG = 0x3C158F0UL;//
-constexpr auto VTABLE_REQUESTHITSONACTORS = 0x3C11CA8UL;//
-constexpr auto VTABLE_REQUESTINVENTORYSYNCMSG = 0x3AE93E0UL;//
+constexpr auto VTABLE_REQUESTACTIVATEREFMSG = 0x448C758UL;// Patch 1.7.23.11
+constexpr auto VTABLE_REQUESTTRANSFERITEMMSG = 0x449B0B8UL;// Patch 1.7.23.11
+constexpr auto VTABLE_REQUESTTELEPORTTOLOCATIONMSG = 0x4491480UL;// Patch 1.7.23.11
+constexpr auto VTABLE_CLIENTSTATEMSG = 0x4491060UL;// Patch 1.7.23.11
+constexpr auto VTABLE_REQUESTHITSONACTORS = 0x448C5A0UL;// Patch 1.7.23.11
+constexpr auto VTABLE_REQUESTINVENTORYSYNCMSG = 0x432F608UL;// Patch 1.7.23.11
+
 
 enum class HotKey : int
 {
