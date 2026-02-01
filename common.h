@@ -53,8 +53,8 @@ constexpr auto OFFSET_INFINITE_AMMO = 0x00F0C410UL; // Patch 1.7.23.11 48 83 EC 
 //direct function calls / message sending
 constexpr auto OFFSET_MELEE_ATTACK = 0x1AADF50UL;// Patch 1.7.23.11
 constexpr auto OFFSET_MESSAGE_SENDER = 0x188ED90UL;// Patch 1.7.23.11 48 8B 01 B2 01 48 8B 40 48 48 FF 25 ? ? ? ? CC
-constexpr auto OFFSET_FAKE_MESSAGE_1 = 0x1579180UL; // 1.7.23.11
-constexpr auto OFFSET_FAKE_MESSAGE_2 = 0x1579180UL; // 1.7.23.11
+constexpr auto OFFSET_FAKE_MESSAGE = 0x17FF435UL; // 1.7.23.11
+constexpr auto OFFSET_FAKE_MESSAGE_EX = 0x17FF431UL; // 1.7.23.11
 
 
 //vtables
