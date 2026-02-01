@@ -67,27 +67,55 @@ bool MsgSender::Send(void* message, const size_t size)
 
 bool MsgSender::Patcher(const bool enabled)
 {
-	BYTE fakeMessagesCheck[4];
-	if (!ErectusProcess::Rpm(ErectusProcess::exe + OFFSET_FAKE_MESSAGE, &fakeMessagesCheck, sizeof fakeMessagesCheck))
-		return false;
+    // Patch 1: Message Patcher (MP)
+    BYTE mpCheck[2];
+    if (!ErectusProcess::Rpm(ErectusProcess::exe + OFFSET_FAKE_MESSAGE, &mpCheck, sizeof mpCheck))
+        return false;
 
-	BYTE fakeMessagesEnabled[] = { 0x48, 0x31, 0xC0, 0xC3 };
-	BYTE fakeMessagesDisabled[] = { 0x40, 0x53, 0x56, 0x57 };
+    BYTE mpEnabled[] = { 0xEB, 0x00 };
+    BYTE mpDisabled[] = { 0xEB, 0x02 };
 
-	if (!memcmp(fakeMessagesCheck, fakeMessagesEnabled, sizeof fakeMessagesEnabled))
-	{
-		if (enabled)
-			return true;
+    if (enabled)
+    {
+        if (memcmp(mpCheck, mpEnabled, sizeof mpEnabled) != 0)
+        {
+            if (!ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_FAKE_MESSAGE, &mpEnabled, sizeof mpEnabled))
+                return false;
+        }
+    }
+    else
+    {
+        if (memcmp(mpCheck, mpDisabled, sizeof mpDisabled) != 0)
+        {
+            if (!ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_FAKE_MESSAGE, &mpDisabled, sizeof mpDisabled))
+                return false;
+        }
+    }
 
-		return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_FAKE_MESSAGE, &fakeMessagesDisabled, sizeof fakeMessagesDisabled);
-	}
+    // Patch 2: Extended Patcher (EP)
+    BYTE epCheck[2];
+    if (!ErectusProcess::Rpm(ErectusProcess::exe + OFFSET_FAKE_MESSAGE_EX, &epCheck, sizeof epCheck))
+        return false;
 
-	if (!memcmp(fakeMessagesCheck, fakeMessagesDisabled, sizeof fakeMessagesDisabled))
-	{
-		if (enabled)
-			return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_FAKE_MESSAGE, &fakeMessagesEnabled, sizeof fakeMessagesEnabled);
-		return true;
-	}
+    BYTE epEnabled[] = { 0xEB, 0x02 };
+    BYTE epDisabled[] = { 0x76, 0x04 };
 
-	return false;
+    if (enabled)
+    {
+        if (memcmp(epCheck, epEnabled, sizeof epEnabled) != 0)
+        {
+            if (!ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_FAKE_MESSAGE_EX, &epEnabled, sizeof epEnabled))
+                return false;
+        }
+    }
+    else
+    {
+        if (memcmp(epCheck, epDisabled, sizeof epDisabled) != 0)
+        {
+            if (!ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_FAKE_MESSAGE_EX, &epDisabled, sizeof epDisabled))
+                return false;
+        }
+    }
+
+    return true;
 }
