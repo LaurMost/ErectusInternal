@@ -41,10 +41,6 @@ constexpr auto OFFSET_OPK = 0x31AE51DUL;  // Updated 1.7.23.11
 
 //noclip
 constexpr auto OFFSET_CHAR_CONTROLLER = 0x6288AB0UL;// Patch 1.7.23.11
-constexpr auto OFFSET_NOCLIP_A = 0x319CD08UL; // Patch 1.7.23.11
-constexpr auto OFFSET_NOCLIP_B = 0x319CCC0UL; // Patch 1.7.23.11
-constexpr auto OFFSET_NOCLIP_C = 0x1A1C73CUL; // Patch 1.7.23.11
-constexpr auto OFFSET_NOCLIP_D = 0x1A1C76CUL; // Patch 1.7.23.11
 
 //weapon editor
 constexpr auto OFFSET_DATA_HANDLER = 0x5E09B10UL; // Patch 1.7.23.11
