@@ -12,7 +12,9 @@ public:
 
 	inline static bool positionSpoofingToggle = false;
 	inline static bool noclipToggle = false;
+	inline static bool freeCamToggle = false;
 	inline static bool opkNpcsToggle = false;
+	inline static bool projectileSpawnerToggle = false;
 
 private:
 	static DWORD __stdcall BufferEntityListThread(LPVOID lpParameter);

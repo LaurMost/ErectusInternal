@@ -12,6 +12,7 @@
 #include "features/Opk.h"
 #include "features/PlayerStatsEditor.h"
 #include "features/WeaponEditor.h"
+#include "features/ProjectileSpawner.h"
 #include "game/Game.h"
 
 DWORD WINAPI Threads::BufferEntityListThread([[maybe_unused]] LPVOID lpParameter)
@@ -206,6 +207,8 @@ DWORD WINAPI Threads::MultihackThread([[maybe_unused]] LPVOID lpParameter)
 
 		ErectusMemory::Noclip(noclipToggle);
 
+		ErectusMemory::FreeCam(freeCamToggle);
+
 		PlayerStatsEditor::Edit(true);
 
 		ErectusMemory::FreezeActionPoints(freezeApPage, freezeApPageValid, true);
@@ -239,11 +242,33 @@ DWORD WINAPI Threads::MultihackThread([[maybe_unused]] LPVOID lpParameter)
 				meleeThreshold = 0;
 		}
 
+		// Projectile Spawn keybind (configurable via Settings)
+		if (Settings::projectileSpawner.enabled)
+		{
+			if (gApp->GetMode() == App::Mode::Overlay)
+			{
+				static bool projKeyWasPressed = false;
+				if (GetAsyncKeyState(VK_CONTROL) && GetAsyncKeyState(Settings::hotkeys.spawnProjectileKey))
+				{
+					if (!projKeyWasPressed)
+					{
+						projKeyWasPressed = true;
+						ProjectileSpawner::SpawnAtTarget();
+					}
+				}
+				else
+				{
+					projKeyWasPressed = false;
+				}
+			}
+		}
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(16));
 	}
 
 	ErectusMemory::PositionSpoofing(false);
 	ErectusMemory::Noclip(false);
+	ErectusMemory::FreeCam(false);
 
 	PlayerStatsEditor::Edit(false);
 
