@@ -439,6 +439,8 @@ void Settings::GetLocalPlayerSettings()
 	GetSliderInt("LocalPlayerSettings", "PositionSpoofingHeight", localPlayer.positionSpoofingHeight, localPlayer.positionSpoofingHeight, -524287, 524287);
 	GetBool("LocalPlayerSettings", "NoclipEnabled", localPlayer.noclipEnabled, localPlayer.noclipEnabled);
 	GetSliderFloat("LocalPlayerSettings", "NoclipSpeed", localPlayer.noclipSpeed, localPlayer.noclipSpeed, 0.0f, 1.0f);
+	GetBool("LocalPlayerSettings", "FreeCamEnabled", localPlayer.freeCamEnabled, localPlayer.freeCamEnabled);
+	GetSliderFloat("LocalPlayerSettings", "FreeCamSpeed", localPlayer.freeCamSpeed, localPlayer.freeCamSpeed, 1.0f, 100.0f);
 	GetBool("LocalPlayerSettings", "ClientState", localPlayer.clientState, localPlayer.clientState);
 	GetBool("LocalPlayerSettings", "AutomaticClientState", localPlayer.automaticClientState, localPlayer.automaticClientState);
 	GetBool("LocalPlayerSettings", "FreezeApEnabled", localPlayer.freezeApEnabled, localPlayer.freezeApEnabled);
@@ -465,6 +467,8 @@ void Settings::SetLocalPlayerSettings()
 	SetSliderInt("LocalPlayerSettings", "PositionSpoofingHeight", localPlayer.positionSpoofingHeight, localPlayer.positionSpoofingHeight, -524287, 524287);
 	SetBool("LocalPlayerSettings", "NoclipEnabled", localPlayer.noclipEnabled, localPlayer.noclipEnabled);
 	SetSliderFloat("LocalPlayerSettings", "NoclipSpeed", localPlayer.noclipSpeed, localPlayer.noclipSpeed, 0.0f, 1.0f);
+	SetBool("LocalPlayerSettings", "FreeCamEnabled", localPlayer.freeCamEnabled, localPlayer.freeCamEnabled);
+	SetSliderFloat("LocalPlayerSettings", "FreeCamSpeed", localPlayer.freeCamSpeed, localPlayer.freeCamSpeed, 1.0f, 100.0f);
 	SetBool("LocalPlayerSettings", "ClientState", localPlayer.clientState, localPlayer.clientState);
 	SetBool("LocalPlayerSettings", "AutomaticClientState", localPlayer.automaticClientState, localPlayer.automaticClientState);
 	SetBool("LocalPlayerSettings", "FreezeApEnabled", localPlayer.freezeApEnabled, localPlayer.freezeApEnabled);
@@ -489,10 +493,12 @@ void Settings::SetLocalPlayerSettings()
 void Settings::GetOpkSettings()
 {
 	GetBool("OpkSettings", "OpkNpcsEnabled", opk.enabled, false);
+	GetSliderFloat("Opk", "moveDistance", opk.moveDistance, 3.0f, 0.5f, 20.0f);
 }
 void Settings::SetOpkSettings()
 {
 	SetBool("OpkSettings", "OpkNpcsEnabled", opk.enabled, false);
+	SetSliderFloat("Opk", "moveDistance", opk.moveDistance, 3.0f, 0.5f, 20.0f);
 }
 
 void Settings::GetUtilitySettings()
@@ -691,6 +697,183 @@ void Settings::SetBitMsgWriterSettings()
 	SetBool("BitMsgWriter", "AllowMessages", msgWriter.enabled, false);
 }
 
+void Settings::GetProjectileSpawnerSettings()
+{
+	GetBool("ProjectileSpawner", "enabled", projectileSpawner.enabled, false);
+	GetSliderInt("ProjectileSpawner", "selectedWeapon", projectileSpawner.selectedWeapon, 0, 0, 2);
+	GetSliderFloat("ProjectileSpawner", "headHeightOffset", projectileSpawner.headHeightOffset, 70.0f, 0.0f, 150.0f);
+	GetBool("ProjectileSpawner", "drawTrajectory", projectileSpawner.drawTrajectory, true);
+	GetBool("ProjectileSpawner", "drawImpactMarker", projectileSpawner.drawImpactMarker, true);
+	GetBool("ProjectileSpawner", "showDistance", projectileSpawner.showDistance, true);
+	GetBool("ProjectileSpawner", "showTravelTime", projectileSpawner.showTravelTime, true);
+	GetSliderInt("ProjectileSpawner", "trajectorySegments", projectileSpawner.trajectorySegments, 30, 10, 50);
+	
+	static const float defaultTrajColor[3] = {1.0f, 1.0f, 0.0f};
+	static const float defaultImpactColor[3] = {1.0f, 0.0f, 0.0f};
+	GetRgb("ProjectileSpawner", "trajectoryColor", projectileSpawner.trajectoryColor, defaultTrajColor);
+	GetRgb("ProjectileSpawner", "impactColor", projectileSpawner.impactColor, defaultImpactColor);
+}
+
+void Settings::SetProjectileSpawnerSettings()
+{
+	SetBool("ProjectileSpawner", "enabled", projectileSpawner.enabled, false);
+	SetSliderInt("ProjectileSpawner", "selectedWeapon", projectileSpawner.selectedWeapon, 0, 0, 2);
+	SetSliderFloat("ProjectileSpawner", "headHeightOffset", projectileSpawner.headHeightOffset, 70.0f, 0.0f, 150.0f);
+	SetBool("ProjectileSpawner", "drawTrajectory", projectileSpawner.drawTrajectory, true);
+	SetBool("ProjectileSpawner", "drawImpactMarker", projectileSpawner.drawImpactMarker, true);
+	SetBool("ProjectileSpawner", "showDistance", projectileSpawner.showDistance, true);
+	SetBool("ProjectileSpawner", "showTravelTime", projectileSpawner.showTravelTime, true);
+	SetSliderInt("ProjectileSpawner", "trajectorySegments", projectileSpawner.trajectorySegments, 30, 10, 50);
+	
+	static const float defaultTrajColor[3] = {1.0f, 1.0f, 0.0f};
+	static const float defaultImpactColor[3] = {1.0f, 0.0f, 0.0f};
+	SetRgb("ProjectileSpawner", "trajectoryColor", projectileSpawner.trajectoryColor, defaultTrajColor);
+	SetRgb("ProjectileSpawner", "impactColor", projectileSpawner.impactColor, defaultImpactColor);
+}
+
+void Settings::GetCallFunctionSettings()
+{
+	GetDword("CallFunction", "combatSpellFormId", callFunction.combatSpellFormId, 0x0012772C);
+	GetDword("CallFunction", "idleFormId", callFunction.idleFormId, 0);
+}
+
+void Settings::SetCallFunctionSettings()
+{
+	SetDword("CallFunction", "combatSpellFormId", callFunction.combatSpellFormId, 0x0012772C);
+	SetDword("CallFunction", "idleFormId", callFunction.idleFormId, 0);
+}
+
+void Settings::GetRgba(const std::string& section, const std::string& key, float* value, const float* deflt)
+{
+	const auto keyR = format(FMT_STRING("{}R"), key);
+	const auto keyG = format(FMT_STRING("{}G"), key);
+	const auto keyB = format(FMT_STRING("{}B"), key);
+	const auto keyA = format(FMT_STRING("{}A"), key);
+
+	GetFloat(section, keyR, value[0], deflt[0]);
+	GetFloat(section, keyG, value[1], deflt[1]);
+	GetFloat(section, keyB, value[2], deflt[2]);
+	GetFloat(section, keyA, value[3], deflt[3]);
+}
+
+void Settings::SetRgba(const std::string& section, const std::string& key, float* value, const float* deflt)
+{
+	const auto keyR = format(FMT_STRING("{}R"), key);
+	const auto keyG = format(FMT_STRING("{}G"), key);
+	const auto keyB = format(FMT_STRING("{}B"), key);
+	const auto keyA = format(FMT_STRING("{}A"), key);
+
+	SetFloat(section, keyR, value[0], deflt[0]);
+	SetFloat(section, keyG, value[1], deflt[1]);
+	SetFloat(section, keyB, value[2], deflt[2]);
+	SetFloat(section, keyA, value[3], deflt[3]);
+}
+
+void Settings::GetUnsigned(const std::string& section, const std::string& key, unsigned& value, const unsigned deflt)
+{
+	if (!ini.has(section))
+		ini[section];
+
+	if (!ini[section].has(key))
+		ini[section][key] = std::to_string(deflt);
+
+	try
+	{
+		value = static_cast<unsigned>(stoul(ini[section][key]));
+	}
+	catch (...)
+	{
+		value = deflt;
+	}
+}
+
+void Settings::SetUnsigned(const std::string& section, const std::string& key, const unsigned value, const unsigned deflt)
+{
+	if (!ini.has(section))
+		ini[section];
+
+	if (!ini[section].has(key))
+		ini[section][key] = std::to_string(deflt);
+
+	ini[section][key] = std::to_string(value);
+}
+
+void Settings::GetMenuStyleSettings()
+{
+	static const MenuStyleSettings defaults{};
+
+	GetRgba("MenuStyle", "WindowBg", menuStyle.windowBg, defaults.windowBg);
+	GetRgba("MenuStyle", "FrameBg", menuStyle.frameBg, defaults.frameBg);
+	GetRgba("MenuStyle", "ToggleOnColor", menuStyle.toggleOnColor, defaults.toggleOnColor);
+	GetRgba("MenuStyle", "ToggleOffColor", menuStyle.toggleOffColor, defaults.toggleOffColor);
+
+	GetSliderFloat("MenuStyle", "WindowRounding", menuStyle.windowRounding, defaults.windowRounding, 0.0f, 12.0f);
+	GetSliderFloat("MenuStyle", "FrameRounding", menuStyle.frameRounding, defaults.frameRounding, 0.0f, 12.0f);
+	GetSliderFloat("MenuStyle", "FrameBorderSize", menuStyle.frameBorderSize, defaults.frameBorderSize, 0.0f, 2.0f);
+	GetSliderFloat("MenuStyle", "ItemSpacing", menuStyle.itemSpacing, defaults.itemSpacing, 0.0f, 20.0f);
+}
+
+void Settings::SetMenuStyleSettings()
+{
+	static const MenuStyleSettings defaults{};
+
+	SetRgba("MenuStyle", "WindowBg", menuStyle.windowBg, defaults.windowBg);
+	SetRgba("MenuStyle", "FrameBg", menuStyle.frameBg, defaults.frameBg);
+	SetRgba("MenuStyle", "ToggleOnColor", menuStyle.toggleOnColor, defaults.toggleOnColor);
+	SetRgba("MenuStyle", "ToggleOffColor", menuStyle.toggleOffColor, defaults.toggleOffColor);
+
+	SetSliderFloat("MenuStyle", "WindowRounding", menuStyle.windowRounding, defaults.windowRounding, 0.0f, 12.0f);
+	SetSliderFloat("MenuStyle", "FrameRounding", menuStyle.frameRounding, defaults.frameRounding, 0.0f, 12.0f);
+	SetSliderFloat("MenuStyle", "FrameBorderSize", menuStyle.frameBorderSize, defaults.frameBorderSize, 0.0f, 2.0f);
+	SetSliderFloat("MenuStyle", "ItemSpacing", menuStyle.itemSpacing, defaults.itemSpacing, 0.0f, 20.0f);
+}
+
+void Settings::GetHotkeySettings()
+{
+	static const HotkeySettings defaults{};
+
+	GetUnsigned("Hotkeys", "PositionSpoofingKey", hotkeys.positionSpoofingKey, defaults.positionSpoofingKey);
+	GetUnsigned("Hotkeys", "NoclipKey", hotkeys.noclipKey, defaults.noclipKey);
+	GetUnsigned("Hotkeys", "FreeCamKey", hotkeys.freeCamKey, defaults.freeCamKey);
+	GetUnsigned("Hotkeys", "TeleportToCamKey", hotkeys.teleportToCamKey, defaults.teleportToCamKey);
+	GetUnsigned("Hotkeys", "OpkKey", hotkeys.opkKey, defaults.opkKey);
+	GetUnsigned("Hotkeys", "LootKey", hotkeys.lootKey, defaults.lootKey);
+	GetUnsigned("Hotkeys", "SpawnProjectileKey", hotkeys.spawnProjectileKey, defaults.spawnProjectileKey);
+	GetUnsigned("Hotkeys", "ToggleOverlayKey", hotkeys.toggleOverlayKey, defaults.toggleOverlayKey);
+	GetBool("Hotkeys", "UseCtrlModifier", hotkeys.useCtrlModifier, defaults.useCtrlModifier);
+}
+
+void Settings::SetHotkeySettings()
+{
+	static const HotkeySettings defaults{};
+
+	SetUnsigned("Hotkeys", "PositionSpoofingKey", hotkeys.positionSpoofingKey, defaults.positionSpoofingKey);
+	SetUnsigned("Hotkeys", "NoclipKey", hotkeys.noclipKey, defaults.noclipKey);
+	SetUnsigned("Hotkeys", "FreeCamKey", hotkeys.freeCamKey, defaults.freeCamKey);
+	SetUnsigned("Hotkeys", "TeleportToCamKey", hotkeys.teleportToCamKey, defaults.teleportToCamKey);
+	SetUnsigned("Hotkeys", "OpkKey", hotkeys.opkKey, defaults.opkKey);
+	SetUnsigned("Hotkeys", "LootKey", hotkeys.lootKey, defaults.lootKey);
+	SetUnsigned("Hotkeys", "SpawnProjectileKey", hotkeys.spawnProjectileKey, defaults.spawnProjectileKey);
+	SetUnsigned("Hotkeys", "ToggleOverlayKey", hotkeys.toggleOverlayKey, defaults.toggleOverlayKey);
+	SetBool("Hotkeys", "UseCtrlModifier", hotkeys.useCtrlModifier, defaults.useCtrlModifier);
+}
+
+void Settings::GetWindowSettings()
+{
+	static const WindowSettings defaults{};
+
+	GetSliderInt("Window", "DefaultWidth", window.defaultWidth, defaults.defaultWidth, 320, 1920);
+	GetSliderInt("Window", "DefaultHeight", window.defaultHeight, defaults.defaultHeight, 240, 1080);
+}
+
+void Settings::SetWindowSettings()
+{
+	static const WindowSettings defaults{};
+
+	SetSliderInt("Window", "DefaultWidth", window.defaultWidth, defaults.defaultWidth, 320, 1920);
+	SetSliderInt("Window", "DefaultHeight", window.defaultHeight, defaults.defaultHeight, 240, 1080);
+}
+
 void Settings::GetInfoBoxSettings()
 {
 	GetBool("esp.infoBox", "drawPlayerInfo", esp.infobox.drawPlayerInfo, false);
@@ -786,6 +969,11 @@ void Settings::Read()
 	GetMeleeSettings();
 	GetChargenSettings();
 	GetBitMsgWriterSettings();
+	GetProjectileSpawnerSettings();
+	GetCallFunctionSettings();
+	GetMenuStyleSettings();
+	GetHotkeySettings();
+	GetWindowSettings();
 
 	file.write(ini, true);
 }
@@ -808,6 +996,11 @@ void Settings::Write()
 	SetMeleeSettings();
 	SetChargenSettings();
 	SetBitMsgWriterSettings();
+	SetProjectileSpawnerSettings();
+	SetCallFunctionSettings();
+	SetMenuStyleSettings();
+	SetHotkeySettings();
+	SetWindowSettings();
 
 	file.write(ini, true);
 }

@@ -263,6 +263,8 @@ public:
 	int positionSpoofingHeight = 524287;
 	bool noclipEnabled = false;
 	float noclipSpeed = 0.1f;
+	bool freeCamEnabled = false;
+	float freeCamSpeed = 10.0f;
 	bool clientState = false;
 	bool automaticClientState = false;
 	bool freezeApEnabled = false;
@@ -288,7 +290,8 @@ public:
 class OpkSettings
 {
 public:
-	bool enabled;
+	bool enabled = false;
+	float moveDistance = 3.0f;  // How far to project entities in front of player
 };
 class UtilitySettings
 {
@@ -363,6 +366,71 @@ public:
 	bool enabled;
 };
 
+// Menu appearance settings
+struct MenuStyleSettings
+{
+	// Dark blue theme defaults
+	float windowBg[4] = { 0.06f, 0.06f, 0.08f, 0.94f };
+	float frameBg[4] = { 0.12f, 0.12f, 0.15f, 1.0f };
+	float toggleOnColor[4] = { 0.20f, 0.70f, 0.35f, 0.6f };
+	float toggleOffColor[4] = { 0.70f, 0.20f, 0.20f, 0.6f };
+
+	float windowRounding = 6.0f;
+	float frameRounding = 4.0f;
+	float frameBorderSize = 1.0f;
+	float itemSpacing = 8.0f;
+};
+
+// Configurable hotkeys
+struct HotkeySettings
+{
+	unsigned positionSpoofingKey = 'L';
+	unsigned noclipKey = 'Y';
+	unsigned freeCamKey = 'F';
+	unsigned teleportToCamKey = 'T';
+	unsigned opkKey = 'N';
+	unsigned lootKey = 'R';
+	unsigned spawnProjectileKey = 'B';
+	unsigned toggleOverlayKey = VK_RETURN;
+
+	// All use CTRL modifier by default
+	bool useCtrlModifier = true;
+};
+
+// Window settings (Windows 10 compatible)
+struct WindowSettings
+{
+	int defaultWidth = 480;
+	int defaultHeight = 720;
+};
+
+class ProjectileSpawnerSettings
+{
+public:
+	bool enabled = false;
+	
+	// Weapon selection (index into MISSILE_WEAPONS array)
+	int selectedWeapon = 0;  // 0=Fatman, 1=AutoGL, 2=M79
+	
+	// Spawn position (offset from player feet to head)
+	float headHeightOffset = 70.0f;  // Approximate head height above feet
+	
+	// Trajectory visualization
+	bool drawTrajectory = true;
+	bool drawImpactMarker = true;
+	bool showDistance = true;
+	bool showTravelTime = true;
+	int trajectorySegments = 30;
+	float trajectoryColor[3] = {1.0f, 1.0f, 0.0f};  // Yellow
+	float impactColor[3] = {1.0f, 0.0f, 0.0f};      // Red
+};
+
+struct CallFunctionSettings
+{
+	std::uint32_t combatSpellFormId = 0x0012772C;  // Default: Jetpack no AP drain
+	std::uint32_t idleFormId = 0;
+};
+
 class Settings final {
 public:
 	static void Read();
@@ -384,6 +452,13 @@ public:
 	inline static NukeCodeSettings customNukeCodeSettings = {};
 	inline static MeleeSettings melee = { false,10,20 };
 	inline static ChargenSettings characterEditor = { false,0.33f,0.33f,0.33f };
+	inline static ProjectileSpawnerSettings projectileSpawner = {};
+	inline static CallFunctionSettings callFunction = {};
+
+	// UI Settings
+	inline static MenuStyleSettings menuStyle = {};
+	inline static HotkeySettings hotkeys = {};
+	inline static WindowSettings window = {};
 
 private:
 	static void GetItemSettings(const std::string& section, EspSettings::Items& value, const EspSettings::Items& deflt);
@@ -426,6 +501,20 @@ private:
 	static void SetChargenSettings();
 	static void GetBitMsgWriterSettings();
 	static void SetBitMsgWriterSettings();
+	static void GetProjectileSpawnerSettings();
+	static void SetProjectileSpawnerSettings();
+	static void GetCallFunctionSettings();
+	static void SetCallFunctionSettings();
+	static void GetMenuStyleSettings();
+	static void SetMenuStyleSettings();
+	static void GetHotkeySettings();
+	static void SetHotkeySettings();
+	static void GetWindowSettings();
+	static void SetWindowSettings();
+	static void GetRgba(const std::string& section, const std::string& key, float* value, const float* deflt);
+	static void SetRgba(const std::string& section, const std::string& key, float* value, const float* deflt);
+	static void GetUnsigned(const std::string& section, const std::string& key, unsigned& value, unsigned deflt);
+	static void SetUnsigned(const std::string& section, const std::string& key, unsigned value, unsigned deflt);
 
 	static void GetDword(const std::string& section, const std::string& key, std::uint32_t& value, std::uint32_t deflt);
 	static void SetDword(const std::string& section, const std::string& key, std::uint32_t value, std::uint32_t deflt);
