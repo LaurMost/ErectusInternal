@@ -86,18 +86,48 @@ bool ErectusProcess::Wpm(const std::uintptr_t dst, const void* src, const size_t
 
 std::uintptr_t ErectusProcess::AllocEx(const size_t size)
 {
-	//this needs to be split, the game scans for PAGE_EXECUTE_READWRITE regions
-	//1) alloc with PAGE_READWRITE
-	//2) write the data
-	//3) switch to PAGE_EXECUTE_READ
-	//4) create the remote thread
-	//see https://reverseengineering.stackexchange.com/questions/3482/does-code-injected-into-process-memory-always-belong-to-a-page-with-rwx-access
-	return reinterpret_cast<std::uintptr_t>(VirtualAllocEx(handle, nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE));
+    // Allocate with RW - no execute permission (stealth)
+    return reinterpret_cast<std::uintptr_t>(
+        VirtualAllocEx(handle, nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE)
+    );
+}
+
+bool ErectusProcess::ProtectEx(const std::uintptr_t addr, const size_t size)
+{
+    if (!addr)
+        return false;
+    
+    DWORD oldProtect;
+    return VirtualProtectEx(handle, reinterpret_cast<void*>(addr), size, PAGE_EXECUTE_READ, &oldProtect);
+}
+
+std::uintptr_t ErectusProcess::AllocWriteProtect(const void* data, const size_t size)
+{
+    // Step 1: Allocate RW
+    const auto addr = AllocEx(size);
+    if (!addr)
+        return 0;
+    
+    // Step 2: Write shellcode
+    if (!Wpm(addr, data, size))
+    {
+        FreeEx(addr);
+        return 0;
+    }
+    
+    // Step 3: Flip to RX
+    if (!ProtectEx(addr, size))
+    {
+        FreeEx(addr);
+        return 0;
+    }
+    
+    return addr;
 }
 
 bool ErectusProcess::FreeEx(const std::uintptr_t src)
 {
-	return VirtualFreeEx(handle, reinterpret_cast<void*>(src), 0, MEM_RELEASE);
+    return VirtualFreeEx(handle, reinterpret_cast<void*>(src), 0, MEM_RELEASE);
 }
 
 BOOL ErectusProcess::HwndEnumFunc(const HWND hwnd, const LPARAM lParam)
@@ -210,3 +240,4 @@ bool ErectusProcess::AttachToProcess(const DWORD processId)
 
 	return true;
 }
+
