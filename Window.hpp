@@ -1,5 +1,6 @@
 #pragma once
-#include <map>
+#include <array>
+#include <string>
 #include <Windows.h>
 
 class App;
@@ -7,39 +8,50 @@ class App;
 class Window
 {
 public:
-	enum class Styles
+	enum class Style : std::uint8_t
 	{
-		Unknown,
 		Standalone,
 		Attached,
-		Overlay
+		Overlay,
+		Count
 	};
 
-	Window(App* appInstance, LPCSTR windowTitle);
+	// Alias for backward compatibility
+	using Styles = Style;
+
+	// Delete copy operations
+	Window(const Window&) = delete;
+	Window& operator=(const Window&) = delete;
+
+	explicit Window(App& appInstance, const char* windowTitle);
 	~Window();
-	LRESULT __stdcall MsgProc(HWND hWnd, unsigned int msg, WPARAM wParam, LPARAM lParam) const;
 
-	[[nodiscard]] HWND GetHwnd() const { return mainWindow; }
+	[[nodiscard]] LRESULT MsgProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) const;
+	[[nodiscard]] HWND GetHwnd() const noexcept { return mainWindow_; }
+	[[nodiscard]] Style GetStyle() const noexcept { return currentStyle_; }
+	[[nodiscard]] std::pair<int, int> GetSize() const;
 
-	void SetPosition(LONG x, LONG y) const;
-	[[nodiscard]] std::pair<LONG, LONG> GetSize() const;
-	void SetSize(LONG x, LONG y) const;
-	void SetStyle(Styles newStyle);
+	void SetPosition(int x, int y) const;
+	void SetSize(int width, int height) const;
+	void SetStyle(Style newStyle);
 
 private:
-	void Init(LPCSTR windowTitle);
-
-	struct WndStyles
+	struct StyleDef
 	{
 		DWORD style;
-		DWORD styleEx;
+		DWORD exStyle;
 	};
-	const std::map<Styles, WndStyles> styles = {
-		{ Styles::Standalone, { WS_SYSMENU | WS_CAPTION, 0 } },
-		{ Styles::Attached, { WS_POPUP,  WS_EX_TOPMOST } },
-		{ Styles::Overlay, { WS_POPUP,  WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT } } //layered+transparent = clickthrough
-	};
-	Styles currentStyle = Styles::Unknown;
-	HWND mainWindow = nullptr;
-	App* const app;
+
+	static constexpr std::array<StyleDef, static_cast<size_t>(Style::Count)> kStyles = {{
+		{ WS_POPUP, 0 },                                                      // Standalone (borderless)
+		{ WS_POPUP, WS_EX_TOPMOST },                                          // Attached
+		{ WS_POPUP, WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT }       // Overlay (clickthrough)
+	}};
+
+	void Init(const char* windowTitle);
+
+	HWND mainWindow_ = nullptr;
+	App& app_;
+	Style currentStyle_ = Style::Count;  // Initialize to invalid state so first SetStyle always applies
+	std::string windowClass_;  // Store for cleanup
 };
