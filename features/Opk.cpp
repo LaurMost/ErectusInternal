@@ -104,8 +104,7 @@ bool Opk::SetOpkData(const bool enabled)
     if (opkNpcPositionCurrent.DistanceTo(camera.origin / 70.f) <= 20.0f)
         return true;
 
-    const auto opkPosition = Utils::ProjectView(camera.forward, camera.origin / 70.f, 3.0f);
-    opkData.opkNpcPosition[0] = opkPosition.x;
+    const auto opkPosition = Utils::ProjectView(camera.forward, camera.origin / 70.f, Settings::opk.moveDistance);    opkData.opkNpcPosition[0] = opkPosition.x;
     opkData.opkNpcPosition[1] = opkPosition.y;
     opkData.opkNpcPosition[2] = opkPosition.z;
     opkData.opkNpcs = 1;
