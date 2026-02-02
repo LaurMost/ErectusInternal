@@ -283,7 +283,6 @@ bool Threads::CreateProcessThreads()
 	if (threadDestructionCounter)
 		return false;
 
-	ErectusMemory::PatchIntegrityCheck();
 	ErectusMemory::PatchDetectFlag();
 
 	if (!bufferEntityListThreadActive)
