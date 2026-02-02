@@ -23,21 +23,27 @@ constexpr auto OFFSET_ENTITY_ID = 0x05E09B20UL;// Patch 1.7.23.11
 constexpr auto OFFSET_INTEGRITYCHECK = 0x02142280UL;  // Updated 1.7.23.11
 constexpr auto SIZE_INTEGRITYCHECK = 0x00000013UL;  // Updated 1.7.23.11
 constexpr auto OFFSET_FLAGDETECTED = 0x406D76UL;  // Updated 1.7.23.11 Updated E8 ? ? ? ? 4D 85 F6 74 ? B9 Calls sub then add 0x6
+constexpr auto SIZE_FLAGDETECTED = 0x03UL;  // DetectFlag patch size
 
 //chargen
 constexpr auto OFFSET_CHARGEN = 0x6042AB0UL + 0x100;  // Updated 1.7.23.11 48 8D 0D ? ? ? ? E8 ? ? ? ? 48 89 05 ? ? ? ? 48 8D 05 ? ? ? ? 48 89 05 ? ? ? ? E8 ? ? ? ? E8 points to offset
 
 //dmg redirection
 constexpr auto OFFSET_REDIRECTION = 0x1C35F3BUL;  // Updated 1.7.23.11 E8 ? ? ? ? 0F B6 E8 48 8B B7 Calls sub + 15B or 16B
+constexpr auto SIZE_REDIRECTION = 0x05UL;  // DamageRedirection patch size
 constexpr auto OFFSET_REDIRECTION_JMP = 0x1C369ABUL;  // Updated 1.7.23.11 
+constexpr auto SIZE_REDIRECTION_JMP = 0x0CUL;  // DamageRedirectionJmp patch size
 
 //stats editor 
 constexpr auto OFFSET_ACTOR_VALUE = 0x01AA2A70UL;  // Updated 1.7.23.11 48 83 C1 ? E9 ? ? ? ? ? ? ? ? ? ? ? 48 89 5C 24 ? 48 89 6C 24 ? 56 48 83 EC ? 48 8D 69
 constexpr auto OFFSET_AV_REGEN = 0x01AA2E2FUL;  // Updated 1.7.23.11
+constexpr auto SIZE_AV_REGEN = 0x14UL;  // FreezeAP patch size
 constexpr auto OFFSET_SERVER_POSITION = 0x0187D725UL;  // Updated 1.7.23.11
+constexpr auto SIZE_SERVER_POSITION = 0x07UL;  // PositionSpoof patch size
 
 //opk
 constexpr auto OFFSET_OPK = 0x31AE51DUL;  // Updated 1.7.23.11
+constexpr auto SIZE_OPK = 0x0FUL;  // OPK patch size
 
 //noclip
 constexpr auto OFFSET_CHAR_CONTROLLER = 0x6288AB0UL;// Patch 1.7.23.11
@@ -45,12 +51,15 @@ constexpr auto OFFSET_CHAR_CONTROLLER = 0x6288AB0UL;// Patch 1.7.23.11
 //weapon editor
 constexpr auto OFFSET_DATA_HANDLER = 0x5E09B10UL; // Patch 1.7.23.11
 constexpr auto OFFSET_INFINITE_AMMO = 0x00F0C410UL; // Patch 1.7.23.11 48 83 EC 38 48 8D 44 24 50 C7 44 24 50 00 00 00 00
+constexpr auto SIZE_INFINITE_AMMO = 0x09UL;  // InfiniteAmmo patch size
 
 //direct function calls / message sending
 constexpr auto OFFSET_MELEE_ATTACK = 0x1AADF50UL;// Patch 1.7.23.11
 constexpr auto OFFSET_MESSAGE_SENDER = 0x188ED90UL;// Patch 1.7.23.11 48 8B 01 B2 01 48 8B 40 48 48 FF 25 ? ? ? ? CC
 constexpr auto OFFSET_FAKE_MESSAGE = 0x17FF435UL; // 1.7.23.11
+constexpr auto SIZE_FAKE_MESSAGE = 0x02UL;  // FakeMessage patch size
 constexpr auto OFFSET_FAKE_MESSAGE_EX = 0x17FF431UL; // 1.7.23.11
+constexpr auto SIZE_FAKE_MESSAGE_EX = 0x02UL;  // FakeMessageEx patch size
 
 
 //vtables

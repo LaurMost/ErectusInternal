@@ -19,16 +19,16 @@
 // All offsets are defined in common.h
 const DWORD64 UnprotectedRegions[][2] =
 {
-    { OFFSET_INTEGRITYCHECK,    SIZE_INTEGRITYCHECK },  // IntegrityCheck
-    { OFFSET_REDIRECTION,       5  },  // DamageRedirection
-    { OFFSET_REDIRECTION_JMP,   12 },  // DamageRedirectionJmp
-    { OFFSET_AV_REGEN,          20 },  // FreezeAP
-    { OFFSET_SERVER_POSITION,   7  },  // PositionSpoof
-    { OFFSET_FLAGDETECTED,      3  },  // DetectFlag
-    { OFFSET_FAKE_MESSAGE,      2  },  // FakeMessage
-    { OFFSET_FAKE_MESSAGE_EX,   2  },  // FakeMessageEx
-    { OFFSET_INFINITE_AMMO,     9  },  // InfiniteAmmo
-    { OFFSET_OPK,               15 },  // OPK
+    { OFFSET_INTEGRITYCHECK,    SIZE_INTEGRITYCHECK },     // IntegrityCheck
+    { OFFSET_REDIRECTION,       SIZE_REDIRECTION },        // DamageRedirection
+    { OFFSET_REDIRECTION_JMP,   SIZE_REDIRECTION_JMP },    // DamageRedirectionJmp
+    { OFFSET_AV_REGEN,          SIZE_AV_REGEN },           // FreezeAP
+    { OFFSET_SERVER_POSITION,   SIZE_SERVER_POSITION },    // PositionSpoof
+    { OFFSET_FLAGDETECTED,      SIZE_FLAGDETECTED },       // DetectFlag
+    { OFFSET_FAKE_MESSAGE,      SIZE_FAKE_MESSAGE },       // FakeMessage
+    { OFFSET_FAKE_MESSAGE_EX,   SIZE_FAKE_MESSAGE_EX },    // FakeMessageEx
+    { OFFSET_INFINITE_AMMO,     SIZE_INFINITE_AMMO },      // InfiniteAmmo
+    { OFFSET_OPK,               SIZE_OPK },                // OPK
 };
 
 // Forward declaration for pModuleCopy - this would need to be properly defined
