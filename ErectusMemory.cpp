@@ -17,11 +17,11 @@
 
 // Integrity Check Bypass - Offsets and Definitions
 #define OFFSET_TextIntegrityCheck               0x01F14880 // 1.7.11.15
-#define __SIZE_TextIntegrityCheck                   0x0013 // 1.7.11.15
+#define SIZE_TextIntegrityCheck                     0x0013 // 1.7.11.15
 
-const DWORD64 UnprotectedRegions[][2]
+const DWORD64 UnprotectedRegions[][2] =
 {
-    { OFFSET_TextIntegrityCheck, __SIZE_TextIntegrityCheck },
+    { OFFSET_TextIntegrityCheck, SIZE_TextIntegrityCheck },
     // { Offset of region to spoof, Size of data to spoof },
 };
 
@@ -32,13 +32,13 @@ const DWORD64 UnprotectedRegions[][2]
 
 extern "C"
 {
-    DWORD64 TextIntegrityCheck_ret = 0; // on init: TextIntegrityCheck_ret = Exe + OFFSET_TextIntegrityCheck + __SIZE_TextIntegrityCheck;
+    DWORD64 TextIntegrityCheckReturnAddress = 0; // on init: TextIntegrityCheckReturnAddress = Exe + OFFSET_TextIntegrityCheck + SIZE_TextIntegrityCheck;
     DWORD64 __fastcall TextIntegrityCheck_asm(const void* _TextRegion, DWORD64 _TextRegionSize, DWORD64 _r8);
     DWORD64 __fastcall TextIntegrityCheckHook(const void* _TextRegion, DWORD64 _TextRegionSize, DWORD64 _r8)
     {
         const DWORD64 MinRegion = (DWORD64)_TextRegion;
         const DWORD64 MaxRegion = (DWORD64)_TextRegion + _TextRegionSize;
-        for (int i = 0; i < ARRAYSIZE(UnprotectedRegions); i++)
+        for (size_t i = 0; i < ARRAYSIZE(UnprotectedRegions); i++)
         {
             const DWORD64 MinAddress = ErectusProcess::exe + UnprotectedRegions[i][0];
             const DWORD64 MaxAddress = ErectusProcess::exe + UnprotectedRegions[i][0] + UnprotectedRegions[i][1];
@@ -53,23 +53,8 @@ extern "C"
             }
         }
 
-        /*
-        ;--------
-        align 16
-        ;--------
-        TextIntegrityCheck_asm proc
-            mov rax, rsp
-            mov [rax+8], rbx
-            mov [rax+18h], rdi
-            push rbp
-            lea rbp, [rax-98h]
-            jmp TextIntegrityCheck_ret
-        TextIntegrityCheck_asm endp
-        ;--------
-        align 16
-        ;--------
-        */
-
+        // Assembly implementation is in TextIntegrityCheck_asm.asm
+        // The stub preserves the original function prologue and jumps to TextIntegrityCheckReturnAddress
         return TextIntegrityCheck_asm(_TextRegion, _TextRegionSize, _r8);
     }
 }
@@ -1919,8 +1904,8 @@ bool ErectusMemory::VtableSwap(const std::uintptr_t dst, std::uintptr_t src)
 bool ErectusMemory::PatchIntegrityCheck()
 {
 	// Initialize return address if not already set
-	if (TextIntegrityCheck_ret == 0)
-		TextIntegrityCheck_ret = ErectusProcess::exe + OFFSET_TextIntegrityCheck + __SIZE_TextIntegrityCheck;
+	if (TextIntegrityCheckReturnAddress == 0)
+		TextIntegrityCheckReturnAddress = ErectusProcess::exe + OFFSET_TextIntegrityCheck + SIZE_TextIntegrityCheck;
 
 	// NOTE: This hook installation is designed for an internal/injected build.
 	// For an external tool using ErectusProcess::Wpm, writing a JMP to a local function address
