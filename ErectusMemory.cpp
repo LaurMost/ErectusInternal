@@ -16,13 +16,19 @@
 #include <span>
 
 // Integrity Check Bypass - Offsets and Definitions
-#define OFFSET_TextIntegrityCheck               0x01F14880 // 1.7.11.15
-#define SIZE_TextIntegrityCheck                     0x0013 // 1.7.11.15
-
+// All offsets are defined in common.h
 const DWORD64 UnprotectedRegions[][2] =
 {
-    { OFFSET_TextIntegrityCheck, SIZE_TextIntegrityCheck },
-    // { Offset of region to spoof, Size of data to spoof },
+    { OFFSET_INTEGRITYCHECK,    SIZE_INTEGRITYCHECK },  // IntegrityCheck
+    { OFFSET_REDIRECTION,       5  },  // DamageRedirection
+    { OFFSET_REDIRECTION_JMP,   12 },  // DamageRedirectionJmp
+    { OFFSET_AV_REGEN,          20 },  // FreezeAP
+    { OFFSET_SERVER_POSITION,   7  },  // PositionSpoof
+    { OFFSET_FLAGDETECTED,      3  },  // DetectFlag
+    { OFFSET_FAKE_MESSAGE,      2  },  // FakeMessage
+    { OFFSET_FAKE_MESSAGE_EX,   2  },  // FakeMessageEx
+    { OFFSET_INFINITE_AMMO,     9  },  // InfiniteAmmo
+    { OFFSET_OPK,               15 },  // OPK
 };
 
 // Forward declaration for pModuleCopy - this would need to be properly defined
@@ -32,7 +38,7 @@ const DWORD64 UnprotectedRegions[][2] =
 
 extern "C"
 {
-    DWORD64 TextIntegrityCheckReturnAddress = 0; // on init: TextIntegrityCheckReturnAddress = Exe + OFFSET_TextIntegrityCheck + SIZE_TextIntegrityCheck;
+    DWORD64 TextIntegrityCheckReturnAddress = 0; // on init: TextIntegrityCheckReturnAddress = Exe + OFFSET_INTEGRITYCHECK + SIZE_INTEGRITYCHECK;
     DWORD64 __fastcall TextIntegrityCheck_asm(const void* _TextRegion, DWORD64 _TextRegionSize, DWORD64 _r8);
     DWORD64 __fastcall TextIntegrityCheckHook(const void* _TextRegion, DWORD64 _TextRegionSize, DWORD64 _r8)
     {
@@ -1905,7 +1911,7 @@ bool ErectusMemory::PatchIntegrityCheck()
 {
 	// Initialize return address if not already set
 	if (TextIntegrityCheckReturnAddress == 0)
-		TextIntegrityCheckReturnAddress = ErectusProcess::exe + OFFSET_TextIntegrityCheck + SIZE_TextIntegrityCheck;
+		TextIntegrityCheckReturnAddress = ErectusProcess::exe + OFFSET_INTEGRITYCHECK + SIZE_INTEGRITYCHECK;
 
 	// NOTE: This hook installation is designed for an internal/injected build.
 	// For an external tool using ErectusProcess::Wpm, writing a JMP to a local function address
@@ -1931,7 +1937,7 @@ bool ErectusMemory::PatchIntegrityCheck()
 	// *reinterpret_cast<DWORD64*>(&jmpInstruction[6]) = reinterpret_cast<DWORD64>(&TextIntegrityCheckHook);
 	// 
 	// // Write the JMP to the target location
-	// return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_TextIntegrityCheck, jmpInstruction, sizeof jmpInstruction);
+	// return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_INTEGRITYCHECK, jmpInstruction, sizeof jmpInstruction);
 }
 
 bool ErectusMemory::PatchDetectFlag()
