@@ -13,6 +13,8 @@ public:
 	static bool EndFrame();
 
 	static void Resize(unsigned width, unsigned height);
+	static void ApplyStyle();
+	static void ApplyDefaultDarkBlueTheme();
 
 	inline static LPDIRECT3DDEVICE9EX d3dDevice = nullptr;
 
