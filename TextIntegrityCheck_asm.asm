@@ -5,7 +5,7 @@
 .code
 
 ; External reference to the return address
-EXTERN TextIntegrityCheck_ret:QWORD
+EXTERN TextIntegrityCheckReturnAddress:QWORD
 
 ; Assembly stub function
 TextIntegrityCheck_asm PROC
@@ -17,7 +17,7 @@ TextIntegrityCheck_asm PROC
     lea rbp, [rax-98h]
     
     ; Jump to the original function continuation point
-    jmp TextIntegrityCheck_ret
+    jmp TextIntegrityCheckReturnAddress
 TextIntegrityCheck_asm ENDP
 
 END
