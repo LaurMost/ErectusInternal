@@ -15,56 +15,6 @@
 #include "game/Game.h"
 #include <span>
 
-// Integrity Check Bypass - Offsets and Definitions
-// All offsets are defined in common.h
-const DWORD64 UnprotectedRegions[][2] =
-{
-    { OFFSET_INTEGRITYCHECK,    SIZE_INTEGRITYCHECK },     // IntegrityCheck
-    { OFFSET_REDIRECTION,       SIZE_REDIRECTION },        // DamageRedirection
-    { OFFSET_REDIRECTION_JMP,   SIZE_REDIRECTION_JMP },    // DamageRedirectionJmp
-    { OFFSET_AV_REGEN,          SIZE_AV_REGEN },           // FreezeAP
-    { OFFSET_SERVER_POSITION,   SIZE_SERVER_POSITION },    // PositionSpoof
-    { OFFSET_FLAGDETECTED,      SIZE_FLAGDETECTED },       // DetectFlag
-    { OFFSET_FAKE_MESSAGE,      SIZE_FAKE_MESSAGE },       // FakeMessage
-    { OFFSET_FAKE_MESSAGE_EX,   SIZE_FAKE_MESSAGE_EX },    // FakeMessageEx
-    { OFFSET_INFINITE_AMMO,     SIZE_INFINITE_AMMO },      // InfiniteAmmo
-    { OFFSET_OPK,               SIZE_OPK },                // OPK
-};
-
-// Forward declaration for pModuleCopy - this would need to be properly defined
-// in an internal/injected build. For now, this is a placeholder.
-// Uncomment and implement if needed:
-// extern class ModuleCopy* pModuleCopy;
-
-extern "C"
-{
-    DWORD64 TextIntegrityCheckReturnAddress = 0; // on init: TextIntegrityCheckReturnAddress = Exe + OFFSET_INTEGRITYCHECK + SIZE_INTEGRITYCHECK;
-    DWORD64 __fastcall TextIntegrityCheck_asm(const void* _TextRegion, DWORD64 _TextRegionSize, DWORD64 _r8);
-    DWORD64 __fastcall TextIntegrityCheckHook(const void* _TextRegion, DWORD64 _TextRegionSize, DWORD64 _r8)
-    {
-        const DWORD64 MinRegion = (DWORD64)_TextRegion;
-        const DWORD64 MaxRegion = (DWORD64)_TextRegion + _TextRegionSize;
-        for (size_t i = 0; i < ARRAYSIZE(UnprotectedRegions); i++)
-        {
-            const DWORD64 MinAddress = ErectusProcess::exe + UnprotectedRegions[i][0];
-            const DWORD64 MaxAddress = ErectusProcess::exe + UnprotectedRegions[i][0] + UnprotectedRegions[i][1];
-            if (MinAddress >= MinRegion && MaxAddress <= MaxRegion)
-            {
-                // NOTE: pModuleCopy needs to be defined somewhere. Assuming it is a pointer to an object with GetAddress.
-                // If not defined, this will fail at link time. Uncomment the following line if pModuleCopy is available:
-                // return TextIntegrityCheck_asm(pModuleCopy->GetAddress(MinRegion - ErectusProcess::exe), _TextRegionSize, _r8);
-                
-                // For now, fall through to regular integrity check
-                break;
-            }
-        }
-
-        // Assembly implementation is in TextIntegrityCheck_asm.asm
-        // The stub preserves the original function prologue and jumps to TextIntegrityCheckReturnAddress
-        return TextIntegrityCheck_asm(_TextRegion, _TextRegionSize, _r8);
-    }
-}
-
 [[nodiscard]] std::uint32_t ErectusMemory::GenerateCrc32(std::uint32_t formId) noexcept
 {
 	std::span<const std::uint8_t, 4> aData { reinterpret_cast<const std::uint8_t*>(std::addressof(formId)), sizeof formId };
@@ -1907,83 +1857,13 @@ bool ErectusMemory::VtableSwap(const std::uintptr_t dst, std::uintptr_t src)
 	return result;
 }
 
-bool ErectusMemory::PatchIntegrityCheck()
-{
-	// 1. Define the size of the hook and the prologue.
-	// We need 14 bytes for an absolute JMP [RIP+0] on x64.
-	// Based on TextIntegrityCheck_asm.asm, the prologue instructions are:
-	// mov rax, rsp         (3 bytes)
-	// mov [rax+8], rbx     (4 bytes)
-	// mov [rax+18h], rdi   (4 bytes)
-	// push rbp             (1 byte)
-	// lea rbp, [rax-98h]   (7 bytes)
-	// Total Prologue Size: 19 bytes.
-	// We will overwrite 14 bytes, but we must execute all 19 bytes in our stub 
-	// before jumping back to Start + 19.
-	constexpr size_t hookSize = 14;
-	constexpr size_t prologueSize = 19; 
-
-	const auto funcAddress = ErectusProcess::exe + OFFSET_INTEGRITYCHECK;
-
-	// 2. Allocate memory for our stub in the target process
-	// We need enough space for the Prologue + JMP Back
-	const auto stubAddress = ErectusProcess::AllocEx(128);
-	if (!stubAddress)
-		return false;
-
-	// 3. Prepare the Stub Buffer
-	std::vector<BYTE> stubBuffer;
-
-	// A. Read the actual prologue bytes from the game to be safe (Dynamic Prologue Copy)
-	// This ensures we have the exact instructions even if they vary slightly.
-	BYTE originalBytes[prologueSize];
-	if (!ErectusProcess::Rpm(funcAddress, originalBytes, prologueSize)) {
-		ErectusProcess::FreeEx(stubAddress);
-		return false;
-	}
-	
-	// Append original prologue to stub
-	for (size_t i = 0; i < prologueSize; i++) {
-		stubBuffer.push_back(originalBytes[i]);
-	}
-
-	// B. Append the JMP Back instruction
-	// JMP [RIP+0] -> Followed by absolute address
-	BYTE jmpBack[] = { 0xFF, 0x25, 0x00, 0x00, 0x00, 0x00 };
-	for (BYTE b : jmpBack) stubBuffer.push_back(b);
-	
-	// The address to jump back to (Function Start + Prologue Size)
-	uint64_t returnAddress = funcAddress + prologueSize;
-	BYTE* returnAddrBytes = reinterpret_cast<BYTE*>(&returnAddress);
-	for (int i = 0; i < 8; i++) stubBuffer.push_back(returnAddrBytes[i]);
-
-	// 4. Write the Stub to the allocated memory
-	if (!ErectusProcess::Wpm(stubAddress, stubBuffer.data(), stubBuffer.size())) {
-		ErectusProcess::FreeEx(stubAddress);
-		return false;
-	}
-
-	// 5. Create the Hook (JMP to Stub)
-	// We overwrite the start of the function with a jump to our stub.
-	BYTE hookPatch[hookSize];
-	
-	// FF 25 00 00 00 00 (JMP [RIP+0])
-	memcpy(hookPatch, jmpBack, 6);
-	
-	// Address of our stub
-	memcpy(hookPatch + 6, &stubAddress, 8);
-
-	// 6. Apply the Hook
-	// This redirects the game's execution to our stub.
-	return ErectusProcess::Wpm(funcAddress, hookPatch, hookSize);
-}
-
 bool ErectusMemory::PatchDetectFlag()
 {
 	BYTE patch[] = { 0x31, 0xC0, 0x90};
 	return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_FLAGDETECTED, &patch, sizeof patch);
 
 }
+
 
 
 
