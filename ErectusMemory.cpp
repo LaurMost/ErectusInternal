@@ -15,6 +15,65 @@
 #include "game/Game.h"
 #include <span>
 
+// Integrity Check Bypass - Offsets and Definitions
+#define OFFSET_TextIntegrityCheck               0x01F14880 // 1.7.11.15
+#define __SIZE_TextIntegrityCheck                   0x0013 // 1.7.11.15
+
+const DWORD64 UnprotectedRegions[][2]
+{
+    { OFFSET_TextIntegrityCheck, __SIZE_TextIntegrityCheck },
+    // { Offset of region to spoof, Size of data to spoof },
+};
+
+// Forward declaration for pModuleCopy - this would need to be properly defined
+// in an internal/injected build. For now, this is a placeholder.
+// Uncomment and implement if needed:
+// extern class ModuleCopy* pModuleCopy;
+
+extern "C"
+{
+    DWORD64 TextIntegrityCheck_ret = 0; // on init: TextIntegrityCheck_ret = Exe + OFFSET_TextIntegrityCheck + __SIZE_TextIntegrityCheck;
+    DWORD64 __fastcall TextIntegrityCheck_asm(const void* _TextRegion, DWORD64 _TextRegionSize, DWORD64 _r8);
+    DWORD64 __fastcall TextIntegrityCheckHook(const void* _TextRegion, DWORD64 _TextRegionSize, DWORD64 _r8)
+    {
+        const DWORD64 MinRegion = (DWORD64)_TextRegion;
+        const DWORD64 MaxRegion = (DWORD64)_TextRegion + _TextRegionSize;
+        for (int i = 0; i < ARRAYSIZE(UnprotectedRegions); i++)
+        {
+            const DWORD64 MinAddress = ErectusProcess::exe + UnprotectedRegions[i][0];
+            const DWORD64 MaxAddress = ErectusProcess::exe + UnprotectedRegions[i][0] + UnprotectedRegions[i][1];
+            if (MinAddress >= MinRegion && MaxAddress <= MaxRegion)
+            {
+                // NOTE: pModuleCopy needs to be defined somewhere. Assuming it is a pointer to an object with GetAddress.
+                // If not defined, this will fail at link time. Uncomment the following line if pModuleCopy is available:
+                // return TextIntegrityCheck_asm(pModuleCopy->GetAddress(MinRegion - ErectusProcess::exe), _TextRegionSize, _r8);
+                
+                // For now, fall through to regular integrity check
+                break;
+            }
+        }
+
+        /*
+        ;--------
+        align 16
+        ;--------
+        TextIntegrityCheck_asm proc
+            mov rax, rsp
+            mov [rax+8], rbx
+            mov [rax+18h], rdi
+            push rbp
+            lea rbp, [rax-98h]
+            jmp TextIntegrityCheck_ret
+        TextIntegrityCheck_asm endp
+        ;--------
+        align 16
+        ;--------
+        */
+
+        return TextIntegrityCheck_asm(_TextRegion, _TextRegionSize, _r8);
+    }
+}
+
 [[nodiscard]] std::uint32_t ErectusMemory::GenerateCrc32(std::uint32_t formId) noexcept
 {
 	std::span<const std::uint8_t, 4> aData { reinterpret_cast<const std::uint8_t*>(std::addressof(formId)), sizeof formId };
@@ -1859,8 +1918,35 @@ bool ErectusMemory::VtableSwap(const std::uintptr_t dst, std::uintptr_t src)
 
 bool ErectusMemory::PatchIntegrityCheck()
 {
+	// Initialize return address if not already set
+	if (TextIntegrityCheck_ret == 0)
+		TextIntegrityCheck_ret = ErectusProcess::exe + OFFSET_TextIntegrityCheck + __SIZE_TextIntegrityCheck;
+
+	// NOTE: This hook installation is designed for an internal/injected build.
+	// For an external tool using ErectusProcess::Wpm, writing a JMP to a local function address
+	// (TextIntegrityCheckHook) will not work in the target process, as the function exists only
+	// in this process's address space.
+	//
+	// To properly implement this for an external tool, you would need to:
+	// 1. Allocate memory in the target process
+	// 2. Write the hook code (TextIntegrityCheckHook and TextIntegrityCheck_asm) to that memory
+	// 3. Write a JMP instruction to the allocated memory
+	//
+	// For now, using the simple patch method as a fallback:
 	char check = 0;
 	return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_INTEGRITYCHECK, &check, sizeof check);
+
+	// TODO: For internal/injected build, implement proper hook installation:
+	// BYTE jmpInstruction[14] = {
+	//     0xFF, 0x25, 0x00, 0x00, 0x00, 0x00,  // jmp [rip+0]
+	//     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // address placeholder
+	// };
+	// 
+	// // Write the address of TextIntegrityCheckHook into the last 8 bytes
+	// *reinterpret_cast<DWORD64*>(&jmpInstruction[6]) = reinterpret_cast<DWORD64>(&TextIntegrityCheckHook);
+	// 
+	// // Write the JMP to the target location
+	// return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_TextIntegrityCheck, jmpInstruction, sizeof jmpInstruction);
 }
 
 bool ErectusMemory::PatchDetectFlag()
