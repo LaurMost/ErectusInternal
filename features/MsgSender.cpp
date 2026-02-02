@@ -1,68 +1,78 @@
 #include "MsgSender.h"
-
 #include <memory>
-
 #include "../ErectusMemory.h"
 #include "../ErectusProcess.h"
 #include "../settings.h"
 
 bool MsgSender::IsEnabled()
 {
-	if (!Settings::msgWriter.enabled)
-		return false;
-
-	return Patcher(Settings::msgWriter.enabled);
+    if (!Settings::msgWriter.enabled)
+        return false;
+    return Patcher(Settings::msgWriter.enabled);
 }
 
 bool MsgSender::Send(void* message, const size_t size)
 {
-	if (!IsEnabled())
-		return false;
+    if (!IsEnabled())
+        return false;
 
-	const auto allocSize = size + sizeof(ExternalFunction);
-	const auto allocAddress = ErectusProcess::AllocEx(allocSize);
-	if (allocAddress == 0)
-		return false;
+    const auto allocSize = size + sizeof(ExternalFunction);
 
-	ExternalFunction externalFunctionData = {
-		.address = ErectusProcess::exe + OFFSET_MESSAGE_SENDER,
-		.rcx = allocAddress + sizeof(ExternalFunction),
-		.rdx = 0,
-		.r8 = 0,
-		.r9 = 0
-	};
+    // Build payload in local buffer first
+    const auto pageData = std::make_unique<BYTE[]>(allocSize);
+    memset(pageData.get(), 0x00, allocSize);
 
-	const auto pageData = std::make_unique<BYTE[]>(allocSize);
-	memset(pageData.get(), 0x00, allocSize);
-	memcpy(pageData.get(), &externalFunctionData, sizeof externalFunctionData);
-	memcpy(&pageData.get()[sizeof(ExternalFunction)], message, size);
-	const auto written = ErectusProcess::Wpm(allocAddress, pageData.get(), allocSize);
+    ExternalFunction externalFunctionData = {
+        .address = ErectusProcess::exe + OFFSET_MESSAGE_SENDER,
+        .rcx = 0,  // Will patch after allocation
+        .rdx = 0,
+        .r8 = 0,
+        .r9 = 0
+    };
 
-	if (!written)
-	{
-		ErectusProcess::FreeEx(allocAddress);
-		return false;
-	}
+    memcpy(pageData.get(), &externalFunctionData, sizeof externalFunctionData);
+    memcpy(&pageData.get()[sizeof(ExternalFunction)], message, size);
 
-	const auto paramAddress = allocAddress + sizeof ExternalFunction::ASM;
-	auto* const thread = CreateRemoteThread(ErectusProcess::handle, nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(allocAddress),
-		reinterpret_cast<LPVOID>(paramAddress), 0, nullptr);
+    // Allocate RW
+    const auto allocAddress = ErectusProcess::AllocEx(allocSize);
+    if (!allocAddress)
+        return false;
 
-	if (thread == nullptr)
-	{
-		ErectusProcess::FreeEx(allocAddress);
-		return false;
-	}
+    // Patch rcx now that we know the address
+    auto* extFunc = reinterpret_cast<ExternalFunction*>(pageData.get());
+    extFunc->rcx = allocAddress + sizeof(ExternalFunction);
 
-	const auto threadResult = WaitForSingleObject(thread, 3000);
-	CloseHandle(thread);
+    // Write data (still RW)
+    if (!ErectusProcess::Wpm(allocAddress, pageData.get(), allocSize))
+    {
+        ErectusProcess::FreeEx(allocAddress);
+        return false;
+    }
 
-	if (threadResult == WAIT_TIMEOUT)
-		return false;
+    // Flip to RX
+    if (!ErectusProcess::ProtectEx(allocAddress, allocSize))
+    {
+        ErectusProcess::FreeEx(allocAddress);
+        return false;
+    }
 
-	ErectusProcess::FreeEx(allocAddress);
+    // Execute
+    const auto paramAddress = allocAddress + sizeof ExternalFunction::ASM;
+    auto* const thread = CreateRemoteThread(ErectusProcess::handle, nullptr, 0,
+        reinterpret_cast<LPTHREAD_START_ROUTINE>(allocAddress),
+        reinterpret_cast<LPVOID>(paramAddress), 0, nullptr);
 
-	return true;
+    if (!thread)
+    {
+        ErectusProcess::FreeEx(allocAddress);
+        return false;
+    }
+
+    const auto threadResult = WaitForSingleObject(thread, 3000);
+    CloseHandle(thread);
+
+    ErectusProcess::FreeEx(allocAddress);
+    return threadResult != WAIT_TIMEOUT;
 }
 
 bool MsgSender::Patcher(const bool enabled)
