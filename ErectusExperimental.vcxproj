@@ -53,9 +53,6 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
-  </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -142,8 +139,11 @@
     <ClCompile Include="dependencies\imgui\imgui_widgets.cpp" />
     <ClCompile Include="features\Looter.cpp" />
     <ClCompile Include="features\MsgSender.cpp" />
+    <ClCompile Include="features\Cleanup.cpp" />
     <ClCompile Include="features\Opk.cpp" />
     <ClCompile Include="features\PlayerStatsEditor.cpp" />
+    <ClCompile Include="features\ProjectileSpawner.cpp" />
+    <ClCompile Include="features\CallFunction.cpp" />
     <ClCompile Include="features\WeaponEditor.cpp" />
     <ClCompile Include="game\Datatypes\Camera.cpp" />
     <ClCompile Include="game\Datatypes\LoadedAreaManager.cpp" />
@@ -161,9 +161,6 @@
     <ClCompile Include="threads.cpp" />
     <ClCompile Include="Window.cpp" />
     <ClCompile Include="_main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <MASM Include="TextIntegrityCheck_asm.asm" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Erectus.ico" />
@@ -191,8 +188,11 @@
     <ClInclude Include="ErectusProcess.h" />
     <ClInclude Include="features\Looter.h" />
     <ClInclude Include="features\MsgSender.h" />
+    <ClInclude Include="features\Cleanup.h" />
     <ClInclude Include="features\Opk.h" />
     <ClInclude Include="features\PlayerStatsEditor.h" />
+    <ClInclude Include="features\ProjectileSpawner.h" />
+    <ClInclude Include="features\CallFunction.h" />
     <ClInclude Include="features\WeaponEditor.h" />
     <ClInclude Include="game\Datatypes\Camera.h" />
     <ClInclude Include="game\Datatypes\LoadedAreaManager.h" />
@@ -211,7 +211,4 @@
     <ClInclude Include="Window.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
-  </ImportGroup>
 </Project>
