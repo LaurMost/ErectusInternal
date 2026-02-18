@@ -3,7 +3,6 @@
 #include "Game.h"
 #include "../ErectusProcess.h"
 #include "../utils.h"
-#include "Datatypes/TesWorldSpace.h"
 
 LoadedAreaManager Game::GetLoadedAreaManager()
 {
