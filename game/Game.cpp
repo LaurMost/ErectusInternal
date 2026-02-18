@@ -39,7 +39,6 @@ LocalPlayer Game::GetLocalPlayer()
 std::vector<TesObjectCell> Game::GetLoadedCells()
 {
 	auto result = GetLoadedAreaManager().GetLoadedCells();
-	result.push_back(GetSkyCell());
 
 	return result;
 }
@@ -59,36 +58,4 @@ Camera Game::GetPlayerCamera()
 		return result;
 
 	return result;
-}
-
-TesObjectCell Game::GetSkyCell()
-{
-    TesObjectCell result = {};
-
-    // Pointer chain: [[[OFFSET_LOCAL_PLAYER]+0x0A8]+0x0100]
-    std::uintptr_t localPlayerPtr = 0;
-    if (!ErectusProcess::Rpm(ErectusProcess::exe + OFFSET_LOCAL_PLAYER, &localPlayerPtr, sizeof localPlayerPtr))
-        return result;
-    if (!Utils::Valid(localPlayerPtr))
-        return result;
-
-    std::uintptr_t intermediatePtr = 0;
-    if (!ErectusProcess::Rpm(localPlayerPtr + 0x0A8, &intermediatePtr, sizeof intermediatePtr))
-        return result;
-    if (!Utils::Valid(intermediatePtr))
-        return result;
-
-    std::uintptr_t worldspacePtr = 0;
-    if (!ErectusProcess::Rpm(intermediatePtr + 0x0100, &worldspacePtr, sizeof worldspacePtr))
-        return result;
-    if (!Utils::Valid(worldspacePtr))
-        return result;
-
-    TesWorldSpace worldspace = {};
-    if (!ErectusProcess::Rpm(worldspacePtr, &worldspace, sizeof worldspace))
-        return result;
-
-    ErectusProcess::Rpm(worldspace.skyCellPtr, &result, sizeof result);
-
-    return result;
 }
