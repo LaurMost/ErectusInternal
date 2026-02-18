@@ -30,11 +30,9 @@ void Gui::RenderOverlay()
 {
 	const auto camera = Game::GetPlayerCamera();
 
-	ProjectileSpawner::UpdateTrajectory();  // Update trajectory each frame
 
 	RenderEntities(camera);
 	RenderPlayers(camera);
-	RenderTrajectory(camera);  // Draw trajectory arc
 
 	RenderInfoBox();
 }
@@ -395,120 +393,6 @@ void Gui::RenderItems(const CustomEntry& entry, const Camera& camera, const EspS
 			itemText = format(FMT_STRING("{0:16x}\n{1:08x}\n{2:16x}\n{3:08x}"), entry.entityPtr, entry.entityFormId, entry.baseObjectPtr, entry.baseObjectFormId);
 
 		RenderText(itemText.c_str(), screenPosition, IM_COL32(settings.color[0] * 255.f, settings.color[1] * 255.f, settings.color[2] * 255.f, alpha * 255.f));
-	}
-}
-
-void Gui::RenderTrajectory(const Camera& cameraData)
-{
-	if (!Settings::projectileSpawner.enabled)
-		return;
-	
-	if (!ProjectileSpawner::hasValidTrajectory)
-		return;
-	
-	const auto& trajectory = ProjectileSpawner::currentTrajectory;
-	if (trajectory.size() < 2)
-		return;
-	
-	auto* drawList = ImGui::GetBackgroundDrawList();
-	
-	const ImU32 trajectoryColor = IM_COL32(
-		static_cast<int>(Settings::projectileSpawner.trajectoryColor[0] * 255.f),
-		static_cast<int>(Settings::projectileSpawner.trajectoryColor[1] * 255.f),
-		static_cast<int>(Settings::projectileSpawner.trajectoryColor[2] * 255.f),
-		255
-	);
-	
-	const ImU32 impactColor = IM_COL32(
-		static_cast<int>(Settings::projectileSpawner.impactColor[0] * 255.f),
-		static_cast<int>(Settings::projectileSpawner.impactColor[1] * 255.f),
-		static_cast<int>(Settings::projectileSpawner.impactColor[2] * 255.f),
-		255
-	);
-	
-	// Draw trajectory arc
-	if (Settings::projectileSpawner.drawTrajectory)
-	{
-		Vector2 prevScreenPos{};
-		bool prevValid = false;
-		
-		for (const auto& point : trajectory)
-		{
-			const auto screenPos = cameraData.World2Screen(point.position);
-			
-			// Check if point is on screen (World2Screen returns 0,0 for off-screen)
-			const bool currentValid = !(screenPos.x == 0.f && screenPos.y == 0.f);
-			
-			if (prevValid && currentValid)
-			{
-				drawList->AddLine(
-					ImVec2(prevScreenPos.x, prevScreenPos.y),
-					ImVec2(screenPos.x, screenPos.y),
-					trajectoryColor,
-					2.0f
-				);
-			}
-			
-			prevScreenPos = screenPos;
-			prevValid = currentValid;
-		}
-	}
-	
-	// Draw impact marker
-	if (Settings::projectileSpawner.drawImpactMarker)
-	{
-		const auto impactScreenPos = cameraData.World2Screen(ProjectileSpawner::currentImpactPoint);
-		
-		if (!(impactScreenPos.x == 0.f && impactScreenPos.y == 0.f))
-		{
-			const float markerSize = 10.0f;
-			
-			// Draw crosshair
-			drawList->AddLine(
-				ImVec2(impactScreenPos.x - markerSize, impactScreenPos.y),
-				ImVec2(impactScreenPos.x + markerSize, impactScreenPos.y),
-				impactColor,
-				2.0f
-			);
-			drawList->AddLine(
-				ImVec2(impactScreenPos.x, impactScreenPos.y - markerSize),
-				ImVec2(impactScreenPos.x, impactScreenPos.y + markerSize),
-				impactColor,
-				2.0f
-			);
-			
-			// Draw circle
-			drawList->AddCircle(
-				ImVec2(impactScreenPos.x, impactScreenPos.y),
-				markerSize,
-				impactColor,
-				12,
-				2.0f
-			);
-			
-			// Draw distance and travel time text
-			std::string infoText;
-			if (Settings::projectileSpawner.showDistance && Settings::projectileSpawner.showTravelTime)
-			{
-				infoText = format(FMT_STRING("{:.0f}m | {:.2f}s"), 
-					ProjectileSpawner::currentDistance * 0.01f, 
-					ProjectileSpawner::currentTravelTime);
-			}
-			else if (Settings::projectileSpawner.showDistance)
-			{
-				infoText = format(FMT_STRING("{:.0f}m"), ProjectileSpawner::currentDistance * 0.01f);
-			}
-			else if (Settings::projectileSpawner.showTravelTime)
-			{
-				infoText = format(FMT_STRING("{:.2f}s"), ProjectileSpawner::currentTravelTime);
-			}
-			
-			if (!infoText.empty())
-			{
-				const Vector2 textPos(impactScreenPos.x, impactScreenPos.y + markerSize + 5.0f);
-				RenderText(infoText.c_str(), textPos, impactColor);
-			}
-		}
 	}
 }
 
@@ -1146,205 +1030,6 @@ void Gui::OverlayMenuTabEsp()
 	}
 }
 
-void Gui::OverlayMenuTabLooter()
-{
-	if (ImGui::BeginTabItem("Looter"))
-	{
-		if (ImGui::CollapsingHeader("Mode"))
-		{
-			if (ImGui::RadioButton("Disabled", Settings::looter.mode == LooterSettings::Mode::Disabled))
-				Settings::looter.mode = LooterSettings::Mode::Disabled;
-			if (ImGui::RadioButton("Automatic looting", Settings::looter.mode == LooterSettings::Mode::Auto))
-				Settings::looter.mode = LooterSettings::Mode::Auto;
-			if (ImGui::RadioButton("Keybind (CTRL + R)", Settings::looter.mode == LooterSettings::Mode::Keybind))
-				Settings::looter.mode = LooterSettings::Mode::Keybind;
-		}
-
-		if (ImGui::CollapsingHeader("Looters"))
-		{
-			LargeButtonToggle("Loot NPCs (76m)", Settings::looter.looters.npcs);
-			LargeButtonToggle("Loot Ground Items (76m)", Settings::looter.looters.groundItems);
-			LargeButtonToggle("Loot Containers (6m)", Settings::looter.looters.containers);
-			LargeButtonToggle("Harvest Flora (6m)", Settings::looter.looters.flora);
-		}
-
-		if (ImGui::TreeNodeEx("Selection", ImGuiTreeNodeFlags_Framed)) {
-
-			if (ImGui::CollapsingHeader("Weapons"))
-			{
-				LargeButtonToggle("All##weapons", Settings::looter.selection.weapons.all);
-				LargeButtonToggle("1*##weapons", Settings::looter.selection.weapons.oneStar);
-				LargeButtonToggle("2*##weapons", Settings::looter.selection.weapons.twoStar);
-				LargeButtonToggle("3*##weapons", Settings::looter.selection.weapons.threeStar);
-			}
-
-			if (ImGui::CollapsingHeader("Apparel"))
-			{
-				LargeButtonToggle("All##apparel", Settings::looter.selection.apparel.all);
-				LargeButtonToggle("1*##apparel", Settings::looter.selection.apparel.oneStar);
-				LargeButtonToggle("2*##apparel", Settings::looter.selection.apparel.twoStar);
-				LargeButtonToggle("3*##apparel", Settings::looter.selection.apparel.threeStar);
-			}
-
-			if (ImGui::CollapsingHeader("Aid"))
-			{
-				LargeButtonToggle("All##aid", Settings::looter.selection.aid.all);
-				LargeButtonToggle("Bobbleheads##aid", Settings::looter.selection.aid.bobbleheads);
-				LargeButtonToggle("Magazines##aid", Settings::looter.selection.aid.magazines);
-			}
-
-			if (ImGui::CollapsingHeader("Misc"))
-			{
-				LargeButtonToggle("All##misc", Settings::looter.selection.misc.all);
-			}
-
-			if (ImGui::CollapsingHeader("Holotapes"))
-			{
-				LargeButtonToggle("All##holo", Settings::looter.selection.holo.all);
-			}
-
-			if (ImGui::CollapsingHeader("Notes"))
-			{
-				LargeButtonToggle("All##notes", Settings::looter.selection.notes.all);
-				LargeButtonToggle("Known Plans##notes", Settings::looter.selection.notes.plansKnown);
-				LargeButtonToggle("Unknown Plans##notes", Settings::looter.selection.notes.plansUnknown);
-				LargeButtonToggle("Treasure Maps##notes", Settings::looter.selection.notes.treasureMaps);
-			}
-
-			if (ImGui::CollapsingHeader("Junk"))
-			{
-				LargeButtonToggle("All##junk", Settings::looter.selection.junk.all);
-
-				ImGui::Columns(2, nullptr, false);
-				for (auto& [formId, isEnabled] : Settings::looter.selection.junk.components)
-				{
-					auto label = format(FMT_STRING("{}##junk"), JUNK_COMPONENT_NAMES.find(formId)->second);
-					LargeButtonToggle(label.c_str(), isEnabled);
-
-					ImGui::NextColumn();
-				}
-				ImGui::Columns();
-			}
-
-			if (ImGui::CollapsingHeader("Flora"))
-			{
-				LargeButtonToggle("All##flora", Settings::looter.selection.flora.all);
-
-				ImGui::Columns(2, nullptr, false);
-				for (auto& [formId, isEnabled] : Settings::looter.selection.flora.components)
-				{
-					auto label = format(FMT_STRING("{}##flora"), FLORA_COMPONENT_NAMES.find(formId)->second);
-					LargeButtonToggle(label.c_str(), isEnabled);
-
-					ImGui::NextColumn();
-				}
-				ImGui::Columns();
-			}
-
-			if (ImGui::CollapsingHeader("Mods"))
-			{
-				LargeButtonToggle("All##mods", Settings::looter.selection.mods.all);
-			}
-
-			if (ImGui::CollapsingHeader("Ammo"))
-			{
-				LargeButtonToggle("All##ammo", Settings::looter.selection.ammo.all);
-			}
-
-			if (ImGui::CollapsingHeader("Other"))
-			{
-				LargeButtonToggle("Caps##other", Settings::looter.selection.other.caps);
-			}
-
-			if (ImGui::CollapsingHeader("Looter Whitelist"))
-			{
-				ImGui::Columns(2, nullptr, false);
-
-				for (auto& [formId, isEnabled] : Settings::looter.selection.whitelist)
-				{
-					auto toggleLabel = format(FMT_STRING("Enabled##whiteList{0:x}Enabled"), formId);
-					LargeButtonToggle(toggleLabel.c_str(), isEnabled);
-
-					ImGui::NextColumn();
-
-					auto inputLabel = format(FMT_STRING("##whiteList{0:x}Item"), formId);
-					auto key = formId;
-					auto value = isEnabled;
-					if (ImGui::InputScalar(inputLabel.c_str(), ImGuiDataType_U32, &key, nullptr, nullptr, "%08lX", ImGuiInputTextFlags_CharsHexadecimal) && ImGui::IsItemDeactivated())
-					{
-						Settings::looter.selection.whitelist.erase(formId);
-						if (key)
-							Settings::looter.selection.whitelist.try_emplace(key, value);
-					}
-
-					ImGui::NextColumn();
-				}
-				//this is for inserting new records into the map
-				{
-					DWORD key = 0;
-					auto value = false;
-
-					LargeButtonToggle("Enabled##whiteListNewEnabled", value);
-
-					ImGui::NextColumn();
-
-					if (ImGui::InputScalar("##whiteListNewItem", ImGuiDataType_U32, &key, nullptr, nullptr, "%08lX", ImGuiInputTextFlags_CharsHexadecimal) && ImGui::IsItemDeactivated())
-					{
-						if (key)
-							Settings::looter.selection.whitelist.try_emplace(key, value);
-					}
-				}
-
-				ImGui::Columns();
-			}
-
-			if (ImGui::CollapsingHeader("Looter Blacklist"))
-			{
-				ImGui::Columns(2, nullptr, false);
-
-				for (auto& [formId, isEnabled] : Settings::looter.selection.blacklist)
-				{
-					auto toggleLabel = format(FMT_STRING("Enabled##blackList{0:x}Enabled"), formId);
-					LargeButtonToggle(toggleLabel.c_str(), isEnabled);
-
-					ImGui::NextColumn();
-
-					auto inputLabel = format(FMT_STRING("##blackList{0:x}Item"), formId);
-					auto key = formId;
-					auto value = isEnabled;
-					if (ImGui::InputScalar(inputLabel.c_str(), ImGuiDataType_U32, &key, nullptr, nullptr, "%08lX", ImGuiInputTextFlags_CharsHexadecimal) && ImGui::IsItemDeactivated())
-					{
-						Settings::looter.selection.blacklist.erase(formId);
-						if (key)
-							Settings::looter.selection.blacklist.try_emplace(key, value);
-					}
-
-					ImGui::NextColumn();
-				}
-				//this is for inserting new records into the map
-				{
-					DWORD key = 0;
-					auto value = false;
-
-					LargeButtonToggle("Enabled##blackListNewEnabled", value);
-
-					ImGui::NextColumn();
-
-					if (ImGui::InputScalar("##blackListNewItem", ImGuiDataType_U32, &key, nullptr, nullptr, "%08lX", ImGuiInputTextFlags_CharsHexadecimal) && ImGui::IsItemDeactivated())
-					{
-						if (key)
-							Settings::looter.selection.blacklist.try_emplace(key, value);
-					}
-				}
-
-				ImGui::Columns();
-			}
-
-			ImGui::TreePop();
-		}
-		ImGui::EndTabItem();
-	}
-}
 
 void Gui::OverlayMenuTabCombat()
 {
@@ -1356,7 +1041,6 @@ void Gui::OverlayMenuTabCombat()
 
 			LargeButtonToggle("No Recoil", Settings::weapons.noRecoil);
 			ImGui::NextColumn();
-			LargeButtonToggle("Infinite Ammo", Settings::weapons.infiniteAmmo);
 			ImGui::NextColumn();
 
 			LargeButtonToggle("No Spread", Settings::weapons.noSpread);
@@ -1499,47 +1183,6 @@ void Gui::OverlayMenuTabCombat()
 			}
 		}
 
-		if (ImGui::CollapsingHeader("One Position Kill"))
-		{
-			ButtonToggle("OPK NPCs", Settings::opk.enabled);
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::SliderFloat("###OpkMoveDistance", &Settings::opk.moveDistance, 0.5f, 20.0f, "Move Distance: %.1f");
-		}
-
-		if (ImGui::CollapsingHeader("Projectile Spawn Settings"))
-		{
-			LargeButtonToggle("Spawn Projectiles", Settings::projectileSpawner.enabled);
-
-			const char* weaponNames[] = { "Fatman (Mini Nuke)", "Auto Grenade Launcher", "M79 Grenade Launcher" };
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::Combo("###WeaponSelect", &Settings::projectileSpawner.selectedWeapon, weaponNames, IM_ARRAYSIZE(weaponNames));
-
-			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x / 2);
-			ImGui::SliderFloat("###HeadHeightOffset", &Settings::projectileSpawner.headHeightOffset, 0.0f, 150.0f, "Spawn Height Offset: %.0f");
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
-			ImGui::SliderInt("###TrajectorySegments", &Settings::projectileSpawner.trajectorySegments, 10, 50, "Arc Segments: %d");
-
-
-			ButtonToggle("Draw Trajectory", Settings::projectileSpawner.drawTrajectory);
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::ColorEdit3("###TrajColor", Settings::projectileSpawner.trajectoryColor);
-
-			ButtonToggle("Draw Impact Marker", Settings::projectileSpawner.drawImpactMarker);
-			ImGui::SameLine();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::ColorEdit3("###ImpactColor", Settings::projectileSpawner.impactColor);
-
-			ButtonToggle("Show Distance", Settings::projectileSpawner.showDistance);
-			ImGui::SameLine();
-			LargeButtonToggle("Show Travel Time", Settings::projectileSpawner.showTravelTime);
-
-
-			
-		}
-
 		ImGui::EndTabItem();
 	}
 }
@@ -1552,11 +1195,6 @@ void Gui::OverlayMenuTabPlayer()
 		{
 			ImGui::Columns(2, nullptr, false);
 
-			LargeButtonToggle("Height Spoofing##LocalPlayerPositionSpoofingEnabled", Settings::localPlayer.positionSpoofingEnabled);
-			ImGui::NextColumn();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::SliderInt("###LocalPlayerPositionSpoofingHeight", &Settings::localPlayer.positionSpoofingHeight, -524287, 524287, "Spoofed Height: %d");
-			ImGui::NextColumn();
 
 			LargeButtonToggle("Noclip###NoclipEnabled", Settings::localPlayer.noclipEnabled);
 			ImGui::NextColumn();
@@ -1575,61 +1213,6 @@ void Gui::OverlayMenuTabPlayer()
 			if (ImGui::Button("Teleport to Camera###TeleportToFreeCam", ImVec2(-FLT_MIN, 0)))
 				ErectusMemory::TeleportToFreeCam();
 			ImGui::NextColumn();
-			LargeButtonToggle("Freeze Action Points###LocalPlayerFreezeApEnabled", Settings::localPlayer.freezeApEnabled);
-			ImGui::NextColumn();
-
-			LargeButtonToggle("Client State", Settings::localPlayer.clientState);
-			ImGui::NextColumn();
-			LargeButtonToggle("Automatic Client State", Settings::localPlayer.automaticClientState);
-			ImGui::NextColumn();
-
-			LargeButtonToggle("Action Points###LocalPlayerAPEnabled", Settings::localPlayer.actionPointsEnabled);
-			ImGui::NextColumn();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::SliderInt("###LocalPlayerAP", &Settings::localPlayer.actionPoints, 0, 99999, "Action Points: %d");
-			ImGui::NextColumn();
-
-			LargeButtonToggle("Strength###LocalPlayerStrengthEnabled", Settings::localPlayer.strengthEnabled);
-			ImGui::NextColumn();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::SliderInt("###LocalPlayerStrength", &Settings::localPlayer.strength, 0, 99999, "Strength: %d");
-			ImGui::NextColumn();
-
-			LargeButtonToggle("Perception###LocalPlayerPerceptionEnabled", Settings::localPlayer.perceptionEnabled);
-			ImGui::NextColumn();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::SliderInt("###LocalPlayerPerception", &Settings::localPlayer.perception, 0, 99999, "Perception: %d");
-			ImGui::NextColumn();
-
-			LargeButtonToggle("Endurance###LocalPlayerEnduranceEnabled", Settings::localPlayer.enduranceEnabled);
-			ImGui::NextColumn();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::SliderInt("###LocalPlayerEndurance", &Settings::localPlayer.endurance, 0, 99999, "Endurance: %d");
-			ImGui::NextColumn();
-
-			LargeButtonToggle("Charisma###LocalPlayerCharismaEnabled", Settings::localPlayer.charismaEnabled);
-			ImGui::NextColumn();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::SliderInt("###LocalPlayerCharisma", &Settings::localPlayer.charisma, 0, 99999, "Charisma: %d");
-			ImGui::NextColumn();
-
-			LargeButtonToggle("Intelligence###LocalPlayerIntelligenceEnabled", Settings::localPlayer.intelligenceEnabled);
-			ImGui::NextColumn();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::SliderInt("###LocalPlayerIntelligence", &Settings::localPlayer.intelligence, 0, 99999, "Intelligence: %d");
-			ImGui::NextColumn();
-
-			LargeButtonToggle("Agility###LocalPlayerAgilityEnabled", Settings::localPlayer.agilityEnabled);
-			ImGui::NextColumn();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::SliderInt("###LocalPlayerAgility", &Settings::localPlayer.agility, 0, 99999, "Agility: %d");
-			ImGui::NextColumn();
-
-			LargeButtonToggle("Luck###LocalPlayerLuckEnabled", Settings::localPlayer.luckEnabled);					ImGui::SameLine(235.0f);
-			ImGui::NextColumn();
-			ImGui::SetNextItemWidth(-FLT_MIN);
-			ImGui::SliderInt("###LocalPlayerLuck", &Settings::localPlayer.luck, 0, 99999, "Luck: %d");
-
 			ImGui::Columns();
 		}
 
@@ -2169,13 +1752,9 @@ void Gui::OverlayMenuTabSettings()
 		// === HOTKEYS SECTION ===
 		if (ImGui::CollapsingHeader("Hotkeys"))
 		{
-			RenderHotkeyDropdown("Position Spoofing", Settings::hotkeys.positionSpoofingKey);
 			RenderHotkeyDropdown("Noclip", Settings::hotkeys.noclipKey);
 			RenderHotkeyDropdown("Free Camera", Settings::hotkeys.freeCamKey);
 			RenderHotkeyDropdown("Teleport to Camera", Settings::hotkeys.teleportToCamKey);
-			RenderHotkeyDropdown("OPK", Settings::hotkeys.opkKey);
-			RenderHotkeyDropdown("Loot", Settings::hotkeys.lootKey);
-			RenderHotkeyDropdown("Spawn Projectile", Settings::hotkeys.spawnProjectileKey);
 			RenderHotkeyDropdown("Toggle Overlay", Settings::hotkeys.toggleOverlayKey);
 
 			ImGui::Spacing();
@@ -2194,7 +1773,6 @@ void Gui::SettingsMenu()
 	if (ImGui::BeginTabBar("###OverlayMenuTabBar", ImGuiTabBarFlags_None))
 	{
 		OverlayMenuTabEsp();
-		OverlayMenuTabLooter();
 		OverlayMenuTabCombat();
 		OverlayMenuTabPlayer();
 		OverlayMenuTabUtilities();
