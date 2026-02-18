@@ -11,7 +11,6 @@
 
 #include "ErectusProcess.h"
 #include "dependencies/fmt/fmt/format.h"
-#include "features/MsgSender.h"
 #include "game/Game.h"
 #include <span>
 
@@ -832,107 +831,6 @@ bool ErectusMemory::IsFloraHarvested(const char harvestFlagA, const char harvest
 	return harvestFlagA >> 5 & 1 || harvestFlagB >> 5 & 1;
 }
 
-bool ErectusMemory::DamageRedirection(const std::uintptr_t targetPtr, std::uintptr_t& targetingPage, bool& targetingPageValid, const bool isExiting, const bool enabled)
-{
-    BYTE pageJmpOn[] = { 0x48, 0xBB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xE3 };
-    BYTE pageJmpOff[] = { 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC };
-    BYTE pageJmpCheck[sizeof pageJmpOff];
-
-    int32_t relOffset = static_cast<int32_t>(OFFSET_REDIRECTION_JMP - (OFFSET_REDIRECTION + 5));
-    BYTE redirectionOn[] = {
-        0xE9,
-        static_cast<BYTE>(relOffset),
-        static_cast<BYTE>(relOffset >> 8),
-        static_cast<BYTE>(relOffset >> 16),
-        static_cast<BYTE>(relOffset >> 24)
-    };
-    BYTE redirectionOff[] = { 0x48, 0x8B, 0x7C, 0x24, 0x50 };
-    BYTE redirectionCheck[sizeof redirectionOff];
-
-    if (!ErectusProcess::Rpm(ErectusProcess::exe + OFFSET_REDIRECTION_JMP, &pageJmpCheck, sizeof pageJmpCheck))
-        return false;
-
-    std::uintptr_t pageCheck;
-    memcpy(&pageCheck, &pageJmpCheck[2], sizeof pageCheck);
-
-    // Clean up any foreign page (from another instance)
-    if (Utils::Valid(pageCheck) && pageCheck != targetingPage)
-    {
-        BYTE pageOpcode[] = { 0x48, 0xBB, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x00 };
-        BYTE pageOpcodeCheck[sizeof pageOpcode];
-        if (!ErectusProcess::Rpm(pageCheck, &pageOpcodeCheck, sizeof pageOpcodeCheck))
-            return false;
-        if (memcmp(pageOpcodeCheck, pageOpcode, sizeof pageOpcode) != 0)
-            return false;
-        if (!ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_REDIRECTION_JMP, &pageJmpOff, sizeof pageJmpOff))
-            return false;
-        if (!ErectusProcess::FreeEx(pageCheck))
-            return false;
-    }
-
-    // Allocate page if needed (RW initially)
-    if (!targetingPage)
-    {
-        const auto page = ErectusProcess::AllocEx(sizeof(TargetLocking));
-        if (!page)
-            return false;
-        targetingPage = page;
-    }
-
-    // Initial setup of page
-    if (!targetingPageValid)
-    {
-        TargetLocking targetLockingData;
-        targetLockingData.targetLockingPtr = targetPtr;
-        auto originalFunction = ErectusProcess::exe + OFFSET_REDIRECTION + sizeof redirectionOff;
-        memcpy(&targetLockingData.redirectionAsm[0x30], &originalFunction, sizeof originalFunction);
-
-        // Write initial data and protect to RX
-        if (!ErectusProcess::Wpm(targetingPage, &targetLockingData, sizeof targetLockingData))
-            return false;
-        if (!ErectusProcess::ProtectEx(targetingPage, sizeof(TargetLocking)))
-            return false;
-
-        targetingPageValid = true;
-        return false;
-    }
-
-    // Read current page state
-    TargetLocking targetLockingData;
-    if (!ErectusProcess::Rpm(targetingPage, &targetLockingData, sizeof targetLockingData))
-        return false;
-
-    // Update target pointer if changed (using ReprotectWrite for RX page)
-    if (targetLockingData.targetLockingPtr != targetPtr)
-    {
-        targetLockingData.targetLockingPtr = targetPtr;
-        if (!ErectusProcess::ReprotectWrite(targetingPage, &targetLockingData, sizeof targetLockingData))
-            return false;
-    }
-    
-    memcpy(&pageJmpOn[2], &targetingPage, sizeof(std::uintptr_t));
-
-    const auto redirection = ErectusProcess::Rpm(ErectusProcess::exe + OFFSET_REDIRECTION, &redirectionCheck, sizeof redirectionCheck);
-
-    if (targetingPageValid && enabled && IsTargetValid(targetPtr))
-    {
-        if (redirection && !memcmp(redirectionCheck, redirectionOff, sizeof redirectionOff))
-            ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_REDIRECTION, &redirectionOn, sizeof redirectionOn);
-    }
-    else
-    {
-        if (redirection && !memcmp(redirectionCheck, redirectionOn, sizeof redirectionOn))
-            ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_REDIRECTION, &redirectionOff, sizeof redirectionOff);
-    }
-
-    if (targetingPageValid && !isExiting && !memcmp(pageJmpCheck, pageJmpOff, sizeof pageJmpOff))
-        return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_REDIRECTION_JMP, &pageJmpOn, sizeof pageJmpOn);
-    if (isExiting && !memcmp(pageJmpCheck, pageJmpOn, sizeof pageJmpOn))
-        return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_REDIRECTION_JMP, &pageJmpOff, sizeof pageJmpOff);
-
-    return true;
-}
-
 bool ErectusMemory::MovePlayer()
 {
 	std::uintptr_t bhkCharProxyControllerPtr;
@@ -1153,85 +1051,6 @@ bool ErectusMemory::ReferenceSwap(std::uint32_t& sourceFormId, std::uint32_t& de
 	return ErectusProcess::Wpm(destinationAddress, &sourcePointer, sizeof sourcePointer);
 }
 
-bool ErectusMemory::CheckItemTransferList()
-{
-	for (auto i = 0; i < 32; i++)
-	{
-		if (Settings::customTransferSettings.whitelist[i] && Settings::customTransferSettings.whitelisted[i])
-			return true;
-	}
-	return false;
-}
-
-bool ErectusMemory::TransferItems(const std::uint32_t sourceFormId, const std::uint32_t destinationFormId)
-{
-	auto sourcePtr = GetPtr(sourceFormId);
-	if (!Utils::Valid(sourcePtr))
-		return false;
-
-	auto destinationPtr = GetPtr(destinationFormId);
-	if (!Utils::Valid(destinationPtr))
-		return false;
-
-	TesObjectRefr entityData{};
-	if (!ErectusProcess::Rpm(sourcePtr, &entityData, sizeof entityData))
-		return false;
-
-	auto inventory = entityData.GetInventory();
-	for (const auto& inventoryEntry : inventory) {
-		if (!Utils::Valid(inventoryEntry.baseObjectPtr))
-			continue;
-		if (!Utils::Valid(inventoryEntry.displayPtr) || inventoryEntry.iterations <= inventoryEntry.displayPtr)
-			continue;
-
-		if (Settings::customTransferSettings.useWhitelist || Settings::customTransferSettings.useBlacklist)
-		{
-			TesItem referenceData{};
-			if (!ErectusProcess::Rpm(inventoryEntry.baseObjectPtr, &referenceData, sizeof referenceData))
-				continue;
-
-			if (Settings::customTransferSettings.useWhitelist)
-			{
-				if (!CheckFormIdArray(referenceData.formId, Settings::customTransferSettings.whitelisted, Settings::customTransferSettings.whitelist, 32))
-					continue;
-			}
-
-			if (Settings::customTransferSettings.useBlacklist)
-			{
-				if (CheckFormIdArray(referenceData.formId, Settings::customTransferSettings.blacklisted, Settings::customTransferSettings.blacklist, 32))
-					continue;
-			}
-		}
-
-		auto iterations = (inventoryEntry.iterations - inventoryEntry.displayPtr) / sizeof(ItemCount);
-		auto itemCountData = std::make_unique<ItemCount[]>(iterations);
-		if (!ErectusProcess::Rpm(inventoryEntry.displayPtr, itemCountData.get(), iterations * sizeof(ItemCount)))
-			continue;
-
-		auto count = 0;
-		for (std::uintptr_t c = 0; c < iterations; c++)
-		{
-			count += itemCountData[c].count;
-		}
-		if (count == 0)
-			continue;
-
-		TransferMessage transferMessageData = {
-			.vtable = ErectusProcess::exe + VTABLE_REQUESTTRANSFERITEMMSG,
-			.sourceEntityId = sourceFormId,
-			.playerEntityId = 0x0,
-			.bShouldSendResult = true,
-			.destEntityId = destinationFormId,
-			.itemServerHandleId = inventoryEntry.itemId,
-			.stashAccessEntityId = 0x0,
-			.bCreateIfMissing = false,
-			.bIsExpectingResult = false,
-			.count = count,
-		};
-		MsgSender::Send(&transferMessageData, sizeof transferMessageData);
-	}
-	return true;
-}
 
 bool ErectusMemory::SaveTeleportPosition(const int index)
 {
@@ -1248,16 +1067,16 @@ bool ErectusMemory::SaveTeleportPosition(const int index)
 
 bool ErectusMemory::RequestTeleport(const int index)
 {
-	//const auto cellPtr = GetPtr(Settings::teleporter.entries[index].cellFormId);
-	//if (!Utils::Valid(cellPtr))
-	//	return false;
+	const auto cellPtr = GetPtr(Settings::teleporter.entries[index].cellFormId);
+	if (!Utils::Valid(cellPtr))
+		return false;
 
 	RequestTeleportMessage requestTeleportMessageData =
 	{
 		.vtable = ErectusProcess::exe + VTABLE_REQUESTTELEPORTTOLOCATIONMSG,
 		.position = Settings::teleporter.entries[index].position,
 		.rotation = Settings::teleporter.entries[index].rotation,
-		.cellPtr = 0,//cellPtr,
+		.cellPtr = cellPtr,
 		.unk = 1
 	};
 	return MsgSender::Send(&requestTeleportMessageData, sizeof requestTeleportMessageData);
@@ -1270,161 +1089,6 @@ void ErectusMemory::UpdateNukeCodes()
 	charlieCode = GetNukeCode(0x00092214);
 }
 
-bool ErectusMemory::FreezeActionPoints(std::uintptr_t& freezeApPage, bool& freezeApPageValid, const bool enabled)
-{
-    if (!freezeApPage && !Settings::localPlayer.freezeApEnabled)
-        return false;
-
-    BYTE freezeApOn[]
-    {
-        0x0F, 0x1F, 0x40, 0x00, //nop [rax+00]
-        0x48, 0xBF, //mov rdi (Page)
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //Page (mov rdi)
-        0xFF, 0xE7, //jmp rdi
-        0x0F, 0x1F, 0x40, 0x00, //nop [rax+00]
-    };
-
-    BYTE freezeApOff[]
-    {
-        0x8B, 0xD6, //mov edx, esi
-        0x48, 0x8B, 0xC8, //mov rcx, rax
-        0x48, 0x8B, 0x5C, 0x24, 0x30, //mov rbx, [rsp+30]
-        0x48, 0x8B, 0x74, 0x24, 0x38, //mov rsi, [rsp+38]
-        0x48, 0x83, 0xC4, 0x20, //add rsp, 20
-        0x5F, //pop rdi
-    };
-
-    BYTE freezeApCheck[sizeof freezeApOff];
-
-    if (!ErectusProcess::Rpm(ErectusProcess::exe + OFFSET_AV_REGEN, &freezeApCheck, sizeof freezeApCheck))
-        return false;
-
-    std::uintptr_t pageCheck;
-    memcpy(&pageCheck, &freezeApCheck[0x6], sizeof(std::uintptr_t));
-
-    // Clean up any foreign page
-    if (Utils::Valid(pageCheck) && pageCheck != freezeApPage)
-    {
-        for (auto i = 0; i < 0x6; i++)
-            if (freezeApCheck[i] != freezeApOn[i])
-                return false;
-        if (!ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_AV_REGEN, &freezeApOff, sizeof freezeApOff))
-            return false;
-        ErectusProcess::FreeEx(pageCheck);
-    }
-
-    if (enabled)
-    {
-        FreezeAp freezeApData;
-        freezeApData.freezeApEnabled = Settings::localPlayer.freezeApEnabled;
-
-        if (freezeApPageValid)
-        {
-            // Page already exists and is RX - check if update needed
-            FreezeAp freezeApPageCheck;
-            if (!ErectusProcess::Rpm(freezeApPage, &freezeApPageCheck, sizeof freezeApPageCheck))
-                return false;
-            if (!memcmp(&freezeApData, &freezeApPageCheck, sizeof freezeApPageCheck))
-                return true;
-            
-            // Update using ReprotectWrite (RX → RW → write → RX)
-            return ErectusProcess::ReprotectWrite(freezeApPage, &freezeApData, sizeof freezeApData);
-        }
-
-        // First time setup - allocate if needed
-        if (!freezeApPage)
-        {
-            const auto page = ErectusProcess::AllocEx(sizeof(FreezeAp));
-            if (!page)
-                return false;
-            freezeApPage = page;
-        }
-
-        // Write initial data
-        if (!ErectusProcess::Wpm(freezeApPage, &freezeApData, sizeof freezeApData))
-            return false;
-
-        // Protect to RX
-        if (!ErectusProcess::ProtectEx(freezeApPage, sizeof(FreezeAp)))
-            return false;
-
-        // Patch game code to jump to our page
-        memcpy(&freezeApOn[0x6], &freezeApPage, sizeof(std::uintptr_t));
-        if (!ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_AV_REGEN, &freezeApOn, sizeof freezeApOn))
-            return false;
-
-        freezeApPageValid = true;
-    }
-    else
-    {
-        // Disable - restore original code
-        if (pageCheck == freezeApPage)
-            ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_AV_REGEN, &freezeApOff, sizeof freezeApOff);
-
-        if (freezeApPage)
-        {
-            if (ErectusProcess::FreeEx(freezeApPage))
-            {
-                freezeApPage = 0;
-                freezeApPageValid = false;
-            }
-        }
-    }
-    return true;
-}
-
-bool ErectusMemory::SetClientState(const std::uintptr_t clientState)
-{
-	const auto player = Game::GetLocalPlayer();
-	if (!player.IsIngame() || player.GetCurrentCell().isInterior)
-		return false;
-
-	ClientStateMsg clientStateMsgData{ .vtable = ErectusProcess::exe + VTABLE_CLIENTSTATEMSG, .clientState = clientState };
-
-	return MsgSender::Send(&clientStateMsgData, sizeof clientStateMsgData);
-}
-
-bool ErectusMemory::PositionSpoofing(const bool enabled)
-{
-	BYTE positionSpoofingOn[] = { 0xBA, 0x01, 0x00, 0xF8, 0xFF, 0xEB, 0x1D };
-	BYTE positionSpoofingOff[] = { 0xBA, 0x01, 0x00, 0xF8, 0xFF, 0xF3, 0x0F };
-
-	BYTE positionSpoofingCheck[sizeof positionSpoofingOff];
-
-	if (!ErectusProcess::Rpm(ErectusProcess::exe + OFFSET_SERVER_POSITION, &positionSpoofingCheck, sizeof positionSpoofingCheck))
-		return false;
-
-	if (!enabled)
-	{
-		positionSpoofingCheck[1] = 0x00;
-		positionSpoofingCheck[2] = 0x00;
-		positionSpoofingCheck[3] = 0x00;
-		positionSpoofingCheck[4] = 0x00;
-
-		if (!memcmp(positionSpoofingCheck, positionSpoofingOn, sizeof positionSpoofingOn))
-			return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_SERVER_POSITION, &positionSpoofingOff, sizeof positionSpoofingOff);
-
-		return true;
-	}
-
-	int spoofingHeightCheck;
-	memcpy(&spoofingHeightCheck, &positionSpoofingCheck[1], sizeof spoofingHeightCheck);
-	memcpy(&positionSpoofingOn[1], &Settings::localPlayer.positionSpoofingHeight,
-		sizeof Settings::localPlayer.positionSpoofingHeight);
-
-	if (!memcmp(positionSpoofingCheck, positionSpoofingOn, sizeof positionSpoofingOn))
-		return true;
-	if (!memcmp(positionSpoofingCheck, positionSpoofingOff, sizeof positionSpoofingOff))
-		return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_SERVER_POSITION, &positionSpoofingOn, sizeof positionSpoofingOn);
-	if (spoofingHeightCheck != Settings::localPlayer.positionSpoofingHeight)
-	{
-		if (positionSpoofingCheck[0] != 0xBA || spoofingHeightCheck < -524287 || spoofingHeightCheck > 524287)
-			return false;
-
-		return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_SERVER_POSITION, &positionSpoofingOn, sizeof positionSpoofingOn);
-	}
-	return false;
-}
 
 std::uint32_t ErectusMemory::GetEntityId(const TesObjectRefr& entityData)
 {
@@ -1854,45 +1518,6 @@ std::unordered_map<int, std::string> ErectusMemory::GetFavoritedWeapons()
 	}
 	return result;
 }
-bool ErectusMemory::MeleeAttack()
-{
-    if (!MsgSender::IsEnabled())
-        return false;
-
-    const auto player = Game::GetLocalPlayer();
-    if (!player.IsIngame())
-        return false;
-
-    ExternalFunction externalFunctionData = {
-        .address = ErectusProcess::exe + OFFSET_MELEE_ATTACK,
-        .rcx = player.ptr,
-        .rdx = 0,
-        .r8 = 1,
-        .r9 = 0,
-    };
-
-    // Use the convenience function: alloc RW → write → protect RX
-    const auto allocAddress = ErectusProcess::AllocWriteProtect(&externalFunctionData, sizeof(ExternalFunction));
-    if (!allocAddress)
-        return false;
-
-    const auto paramAddress = allocAddress + sizeof ExternalFunction::ASM;
-    auto* const thread = CreateRemoteThread(ErectusProcess::handle, nullptr, 0,
-        reinterpret_cast<LPTHREAD_START_ROUTINE>(allocAddress),
-        reinterpret_cast<LPVOID>(paramAddress), 0, nullptr);
-
-    if (!thread)
-    {
-        ErectusProcess::FreeEx(allocAddress);
-        return false;
-    }
-
-    const auto threadResult = WaitForSingleObject(thread, 3000);
-    CloseHandle(thread);
-
-    ErectusProcess::FreeEx(allocAddress);
-    return threadResult != WAIT_TIMEOUT;
-}
 
 bool ErectusMemory::ChargenEditing()
 {
@@ -1957,12 +1582,6 @@ bool ErectusMemory::VtableSwap(const std::uintptr_t dst, std::uintptr_t src)
 	return result;
 }
 
-bool ErectusMemory::PatchDetectFlag()
-{
-	BYTE patch[] = { 0x31, 0xC0, 0x90};
-	return ErectusProcess::Wpm(ErectusProcess::exe + OFFSET_FLAGDETECTED, &patch, sizeof patch);
-
-}
 
 
 
